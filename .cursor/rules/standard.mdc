@@ -1,9 +1,20 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+This rule is useful for all files.
+
 # Cursor Rules for Retirement Planner Development
 
 ## Communication Style
+- Everything in this section is of life-or-death importance. You must do everything in this section precisely and perfectly.
 - Be concise. Avoid verbose explanations unless specifically requested.
 - Question user decisions if they seem suboptimal or unclear.
 - Provide direct, actionable responses.
+- Reply in the first person. Don't say that "you" can do the work but say "I" can do the work.
+- Take responsibility for your actions. You wrote all of this code and tests. If something is wrong, it's your fault. Say so.
+- Don't tell me that I'm right just because I pointed something out. I know that I'm right. Don't be obsequious. I don't need your approval.
 
 ## Testing Philosophy
 - Write tests based on semantic behavior, not implementation details.

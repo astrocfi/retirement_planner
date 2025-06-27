@@ -134,6 +134,31 @@ class TestConfigLoader:
         finally:
             os.unlink(json_file)
 
+    def test_load_from_path_object(self):
+        """Test loading configuration from Path object."""
+        from pathlib import Path
+
+        loader = ConfigLoader()
+
+        # Create temporary JSON file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump({
+                "app_name": "TestApp",
+                "debug": True,
+                "log_level": "DEBUG"
+            }, f)
+            json_file = f.name
+
+        try:
+            # Test with Path object
+            path = Path(json_file)
+            loader.load_from_file(path)
+            assert loader.config_data["app_name"] == "TestApp"
+            assert loader.config_data["debug"] is True
+            assert loader.config_data["log_level"] == "DEBUG"
+        finally:
+            os.unlink(json_file)
+
     def test_load_from_unsupported_file_type(self):
         """Test loading from unsupported file type raises error."""
         loader = ConfigLoader()

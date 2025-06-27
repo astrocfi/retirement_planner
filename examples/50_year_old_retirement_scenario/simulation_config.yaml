@@ -1,0 +1,132 @@
+# Simulation Configuration
+# Monte Carlo simulation parameters for retirement planning
+
+# Simulation Parameters
+simulation:
+  num_scenarios: 10000        # Number of Monte Carlo scenarios
+  time_horizon: 45            # Years to simulate (50 to 95 = 45 years)
+  time_step: 1                # Annual time steps
+  random_seed: 42             # For reproducible results
+
+# Random Number Generation
+random_generation:
+  method: "sobol"             # sobol, mersenne_twister, numpy
+  antithetic_variates: true   # Use antithetic variates for variance reduction
+  latin_hypercube: false      # Use Latin hypercube sampling
+
+# Market Scenario Generation
+market_scenarios:
+  # Return Distribution
+  return_distribution: "normal"  # normal, lognormal, student_t
+  fat_tails: true               # Account for fat tails in returns
+
+  # Regime Switching
+  regime_switching: true        # Include different market regimes
+  regimes:
+    normal:
+      probability: 0.70
+      duration_mean: 5.0        # Average years in normal regime
+    recession:
+      probability: 0.20
+      duration_mean: 2.0
+    boom:
+      probability: 0.10
+      duration_mean: 3.0
+
+# Correlation and Dependencies
+correlations:
+  # Asset Correlations
+  stock_bond_correlation: -0.1
+  stock_cash_correlation: 0.0
+  bond_cash_correlation: 0.1
+
+  # Economic Correlations
+  inflation_return_correlation: -0.2
+  inflation_bond_correlation: -0.3
+
+# Inflation Modeling
+inflation:
+  model: "random_walk"         # random_walk, mean_reverting
+  mean_reversion_speed: 0.1    # Speed of mean reversion
+  volatility: 0.01             # Inflation volatility
+  long_term_mean: 0.025        # Long-term inflation expectation
+
+# Portfolio Management
+portfolio:
+  rebalancing:
+    frequency: "annual"         # annual, quarterly, monthly
+    threshold: 0.05            # 5% rebalancing threshold
+    costs: 0.001               # 0.1% transaction costs
+
+  # Withdrawal Strategy
+  withdrawal_strategy: "constant_real"  # constant_real, constant_nominal, variable
+  withdrawal_rate: 0.04        # 4% initial withdrawal rate
+
+  # Asset Allocation Glide Path
+  glide_path:
+    enabled: true
+    start_allocation:
+      stocks: 0.60
+      bonds: 0.40
+    end_allocation:
+      stocks: 0.30
+      bonds: 0.70
+    transition_age: 85
+
+# Risk Management
+risk_management:
+  # Stop Loss Rules
+  stop_loss:
+    enabled: true
+    threshold: -0.20           # 20% portfolio decline
+    action: "reduce_withdrawals"  # reduce_withdrawals, rebalance, none
+
+  # Dynamic Withdrawal Adjustments
+  dynamic_withdrawals:
+    enabled: true
+    adjustment_factor: 0.1     # 10% withdrawal adjustment
+    lookback_period: 3         # Years to look back for adjustment
+
+# Success Criteria
+success_criteria:
+  # Portfolio Success
+  portfolio_success:
+    min_ending_value: 0.0      # Don't run out of money
+    probability_threshold: 0.80 # 80% success probability
+
+  # Income Success
+  income_success:
+    min_income_ratio: 0.8      # 80% of target income
+    probability_threshold: 0.90 # 90% success probability
+
+# Output Configuration
+output:
+  # Results to Generate
+  generate_summary: true
+  generate_detailed_scenarios: false
+  generate_charts: true
+  generate_reports: true
+
+  # Chart Types
+  charts:
+    - "monte_carlo_paths"
+    - "success_probability"
+    - "withdrawal_sustainability"
+    - "asset_allocation_evolution"
+    - "cash_flow_projection"
+    - "risk_metrics"
+
+  # Report Format
+  report_format: "pdf"         # pdf, html, json
+  include_appendix: true       # Include detailed methodology
+
+  # File Naming
+  output_prefix: "retirement_analysis"
+  timestamp_output: true       # Add timestamp to output files
+
+# Performance Optimization
+performance:
+  parallel_processing: true    # Use parallel processing
+  num_processes: 4             # Number of parallel processes
+  memory_limit: "4GB"          # Memory limit for simulation
+  cache_results: true          # Cache intermediate results

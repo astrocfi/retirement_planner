@@ -1,0 +1,90 @@
+# Events Configuration
+# Temporal events for retirement planning scenario
+
+events:
+  # Income Events
+  income:
+    - name: "employment_income"
+      event_type: "income"
+      period:
+        start_age: 50
+        end_age: 67
+        description: "Employment income period"
+      amount: 100000.0
+      probability: 1.0
+      inflation_adjustment: true
+      description: "Current employment income until retirement"
+
+    - name: "social_security_benefits"
+      event_type: "benefit"
+      period:
+        start_age: 67
+        end_age: 95
+        description: "Social Security benefits period"
+      amount: 35000.0
+      probability: 1.0
+      inflation_adjustment: true
+      description: "Social Security benefits starting at full retirement age"
+
+  # Expense Events
+  expenses:
+    - name: "working_living_expenses"
+      event_type: "expense"
+      period:
+        start_age: 50
+        end_age: 66
+        description: "Living expenses during working years"
+      amount: 80000.0
+      probability: 1.0
+      inflation_adjustment: true
+      description: "Annual living expenses during working years"
+
+    - name: "early_retirement_expenses"
+      event_type: "expense"
+      period:
+        start_age: 67
+        end_age: 84
+        description: "Living expenses during early retirement"
+      amount: 80000.0
+      probability: 1.0
+      inflation_adjustment: true
+      description: "Annual living expenses during early retirement"
+
+    - name: "late_retirement_expenses"
+      event_type: "expense"
+      period:
+        start_age: 85
+        end_age: 95
+        description: "Reduced living expenses during late retirement"
+      amount: 60000.0
+      probability: 1.0
+      inflation_adjustment: true
+      description: "Reduced annual living expenses during late retirement"
+
+  # Asset Events
+  assets:
+    - name: "initial_portfolio"
+      event_type: "asset"
+      period:
+        start_age: 50
+        end_age: 95
+        description: "Initial portfolio value"
+      amount: 1000000.0
+      probability: 1.0
+      inflation_adjustment: false
+      description: "Initial portfolio value of $1M"
+      metadata:
+        allocation:
+          stocks: 0.60
+          bonds: 0.40
+
+    - name: "annual_401k_contribution"
+      event_type: "asset"
+      period:
+        start_age: 50
+        end_age: 66
+        description: "Annual 401(k) contributions"
+      amount: 20000.0
+      probability: 1.0
+      inflation_adjustment: true
+      description: "Annual 401(k) contributions until retirement"

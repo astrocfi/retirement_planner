@@ -8,7 +8,8 @@ import os
 import yaml
 import json
 import dataclasses
-from typing import Any, Dict, Optional, Type, TypeVar
+from pathlib import Path
+from typing import Any, Dict, Optional, Type, TypeVar, Union
 from dataclasses import dataclass, field, asdict
 from jsonschema import validate as jsonschema_validate, ValidationError as JsonSchemaValidationError
 from .exceptions import ConfigurationError, create_configuration_error
@@ -50,20 +51,23 @@ class ConfigLoader:
         self.schema = schema
         self.config_data: Dict[str, Any] = {}
 
-    def load_from_file(self, file_path: str) -> None:
+    def load_from_file(self, file_path: Union[str, Path]) -> None:
         """Load configuration from a YAML or JSON file."""
+        # Convert Path to string if needed
+        file_path_str = str(file_path)
+
         try:
-            with open(file_path, 'r') as f:
-                if file_path.endswith('.yaml') or file_path.endswith('.yml'):
+            with open(file_path_str, 'r') as f:
+                if file_path_str.endswith('.yaml') or file_path_str.endswith('.yml'):
                     self.config_data = yaml.safe_load(f)
-                elif file_path.endswith('.json'):
+                elif file_path_str.endswith('.json'):
                     self.config_data = json.load(f)
                 else:
-                    raise ConfigurationError(f"Unsupported config file type: {file_path}")
+                    raise ConfigurationError(f"Unsupported config file type: {file_path_str}")
         except Exception as e:
             raise create_configuration_error(
-                f"Failed to load configuration file: {file_path}",
-                file_path=file_path,
+                f"Failed to load configuration file: {file_path_str}",
+                file_path=file_path_str,
                 value=str(e)
             )
 

@@ -1,0 +1,83 @@
+# Market Data Configuration
+# Asset allocation and market assumptions for retirement planning
+
+# Asset Allocation
+portfolio_allocation:
+  stocks: 0.60
+  bonds: 0.40
+  cash: 0.00
+
+# Expected Returns (annual)
+expected_returns:
+  stocks: 0.07      # 7% average annual return
+  bonds: 0.03       # 3% average annual return
+  cash: 0.02        # 2% average annual return
+
+# Volatility (annual standard deviation)
+volatility:
+  stocks: 0.18      # 18% annual volatility
+  bonds: 0.08       # 8% annual volatility
+  cash: 0.02        # 2% annual volatility
+
+# Correlation Matrix
+correlation_matrix:
+  stocks:
+    stocks: 1.0
+    bonds: -0.1
+    cash: 0.0
+  bonds:
+    stocks: -0.1
+    bonds: 1.0
+    cash: 0.1
+  cash:
+    stocks: 0.0
+    bonds: 0.1
+    cash: 1.0
+
+# Risk-Free Rate
+risk_free_rate:
+  rate: 0.025       # 2.5% annual risk-free rate
+  start_date: "2024-01-01"
+  end_date: "2050-12-31"
+  frequency: "monthly"
+  source: "Treasury"
+
+# Inflation Assumptions
+inflation:
+  expected_rate: 0.025    # 2.5% annual inflation
+  volatility: 0.01        # 1% inflation volatility
+
+# Rebalancing
+rebalancing:
+  frequency: "annual"      # annual, quarterly, monthly
+  threshold: 0.05         # 5% threshold for rebalancing
+  costs: 0.001            # 0.1% transaction costs
+
+# Historical Data Sources
+data_sources:
+  stocks: "SPY"           # S&P 500 ETF
+  bonds: "AGG"            # Aggregate Bond ETF
+  risk_free: "GS3M"       # 3-Month Treasury
+
+# Market Regime Assumptions
+market_regimes:
+  normal:
+    probability: 0.70
+    stock_return: 0.07
+    bond_return: 0.03
+    stock_vol: 0.18
+    bond_vol: 0.08
+
+  recession:
+    probability: 0.20
+    stock_return: -0.10
+    bond_return: 0.08
+    stock_vol: 0.25
+    bond_vol: 0.12
+
+  boom:
+    probability: 0.10
+    stock_return: 0.20
+    bond_return: 0.01
+    stock_vol: 0.15
+    bond_vol: 0.06

@@ -1,0 +1,33 @@
+# Person Profile Configuration
+# 50-year-old woman retirement planning scenario
+
+name: "Sarah Johnson"
+age: 50
+retirement_age: 67
+life_expectancy: 95
+current_savings: 1000000.0
+annual_contribution: 20000.0
+risk_tolerance: "moderate"  # conservative, moderate, aggressive
+tax_filing_status: "single"  # single, married, head_of_household
+state_of_residence: "CA"
+
+# Goals
+goals:
+  - name: "savings_sustainability"
+    target_amount: 0.0  # Goal is to not run out of money
+    target_age: 95
+    priority: "essential"
+    goal_type: "income"
+    inflation_adjusted: true
+    description: "Ensure savings last until death at age 95"
+
+  - name: "maintain_lifestyle"
+    target_amount: 80000.0
+    target_age: 85
+    priority: "important"
+    goal_type: "lifestyle"
+    inflation_adjusted: true
+    description: "Maintain $80K/year lifestyle until age 85"
+
+# Additional Data
+additional_data: {}

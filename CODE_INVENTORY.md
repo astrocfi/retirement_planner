@@ -62,11 +62,11 @@ This file tracks all implemented files, classes, and methods to prevent code dup
 - [ ] `retirement_planner/reporting/templates/`
 
 ### Data
-- [ ] `retirement_planner/data/__init__.py`
-- [ ] `retirement_planner/data/market_data.py`
-- [ ] `retirement_planner/data/tax_data.py`
+- [x] `retirement_planner/data/__init__.py`
+- [x] `retirement_planner/data/market_data.py`
+- [x] `retirement_planner/data/tax_data.py`
 - [ ] `retirement_planner/data/loaders.py`
-- [ ] `retirement_planner/data/validators.py`
+- [x] `retirement_planner/data/validators.py`
 
 ### Utils
 - [ ] `retirement_planner/utils/__init__.py`
@@ -162,9 +162,18 @@ This file tracks all implemented files, classes, and methods to prevent code dup
 - [ ] `DataExporter` - PDF, Excel, API export capabilities
 
 ### Data Classes
-- [ ] `MarketDataLoader` - Historical returns and correlation data
-- [ ] `TaxDataLoader` - Tax brackets, rates, limits
-- [ ] `DataValidator` - Data validation and quality checks
+- [x] `MarketDataLoader` - Historical returns and correlation data
+- [x] `HistoricalReturns` - Historical returns data for assets
+- [x] `CorrelationMatrix` - Correlation matrix for asset returns
+- [x] `RiskFreeRate` - Risk-free rate data
+- [x] `TaxDataLoader` - Tax brackets, rates, limits
+- [x] `TaxBracket` - Individual tax bracket with rate and income range
+- [x] `TaxBrackets` - Complete set of tax brackets for a filing status and year
+- [x] `SocialSecurityData` - Social Security parameters and benefit calculations
+- [x] `DataValidator` - Data validation and quality checks
+- [x] `OutlierDetector` - Detect outliers in data using various statistical methods
+- [x] `DataQualityChecker` - Check data quality and consistency
+- [x] `ValidationResult` - Result of data validation operations
 
 ### Utility Classes
 - [ ] `MathUtils` - Mathematical utilities and statistical functions
@@ -240,6 +249,51 @@ This file tracks all implemented files, classes, and methods to prevent code dup
 - [x] `EventManager.get_cash_flow_at_age()` - Calculate net cash flow at age
 - [x] `EventManager.validate_events()` - Validate all events
 - [x] `EventManager.get_event_summary()` - Get summary of all events
+
+### Data Methods
+- [x] `load_historical_returns()` - Load historical returns from CSV file
+- [x] `load_correlation_matrix()` - Load correlation matrix from CSV file
+- [x] `load_risk_free_rate()` - Load risk-free rate from JSON file
+- [x] `save_historical_returns()` - Save historical returns to CSV file
+- [x] `save_correlation_matrix()` - Save correlation matrix to CSV file
+- [x] `save_risk_free_rate()` - Save risk-free rate to JSON file
+- [x] `generate_sample_data()` - Generate sample market data for testing
+- [x] `get_asset_returns()` - Get returns for a specific asset
+- [x] `get_mean_returns()` - Calculate mean returns for all assets
+- [x] `get_volatilities()` - Calculate volatilities for all assets
+- [x] `get_correlation_matrix()` - Calculate correlation matrix for all assets
+- [x] `get_annualized_returns()` - Calculate annualized returns for all assets
+- [x] `get_annualized_volatilities()` - Calculate annualized volatilities for all assets
+- [x] `get_correlation()` - Get correlation between two assets
+- [x] `is_positive_definite()` - Check if correlation matrix is positive definite
+- [x] `get_cholesky_decomposition()` - Get Cholesky decomposition of correlation matrix
+- [x] `get_annualized_rate()` - Get annualized risk-free rate
+- [x] `contains_income()` - Check if income falls within bracket
+- [x] `calculate_tax()` - Calculate tax for income in bracket
+- [x] `get_bracket_for_income()` - Get the tax bracket for a given income level
+- [x] `calculate_total_tax()` - Calculate total tax for given income
+- [x] `get_marginal_rate()` - Get marginal tax rate for given income
+- [x] `get_effective_rate()` - Get effective tax rate for given income
+- [x] `calculate_primary_insurance_amount()` - Calculate Primary Insurance Amount (PIA)
+- [x] `calculate_benefit_at_age()` - Calculate benefit amount at specific claiming age
+- [x] `calculate_medicare_premiums()` - Calculate Medicare premiums based on income level
+- [x] `detect_outliers()` - Detect outliers in the data
+- [x] `get_outlier_info()` - Get detailed information about outliers
+- [x] `check_completeness()` - Check data completeness
+- [x] `check_consistency()` - Check data consistency
+- [x] `check_distribution()` - Check data distribution for numeric columns
+- [x] `check_date_consistency()` - Check date consistency
+- [x] `validate_historical_returns()` - Validate historical returns data
+- [x] `validate_correlation_matrix()` - Validate correlation matrix
+- [x] `validate_tax_brackets()` - Validate tax brackets data
+- [x] `validate_social_security_data()` - Validate Social Security data
+- [x] `generate_validation_report()` - Generate a human-readable validation report
+- [x] `download_historical_returns_from_yahoo()` - Download historical returns from Yahoo Finance
+- [x] `download_risk_free_rate_from_fred()` - Download risk-free rate from FRED
+- [x] `download_tax_brackets_from_irs()` - Download tax brackets from IRS
+- [x] `download_social_security_data_from_ssa()` - Download Social Security data from SSA
+
+*Web-based data download is supported for market, tax, and Social Security data. Local files are used as cache or for user-provided data.*
 
 ## Design Patterns Used
 

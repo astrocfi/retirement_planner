@@ -17,7 +17,7 @@ import pandas as pd
 from dataclasses import dataclass
 
 from retirement_planner.core.exceptions import AnalysisError
-from retirement_planner.core.logging import RetirementPlannerLogger
+from retirement_planner.core.logging import RetirementPlannerLogger, LogLevel
 from retirement_planner.analysis.retirement import RetirementAnalysis
 from retirement_planner.analysis.withdrawal import WithdrawalOptimizationResult
 from retirement_planner.simulation.engine import SimulationResult
@@ -96,7 +96,7 @@ class ChartCreator:
             plt.savefig(output_path, dpi=300, bbox_inches='tight')
             plt.close()
 
-            self.logger.log(f"Portfolio evolution chart saved to {output_path}", level="info")
+            self.logger.log(LogLevel.INFO, f"Portfolio evolution chart saved to {output_path}")
             return output_path
 
         except Exception as e:
@@ -110,8 +110,8 @@ class ChartCreator:
     ) -> Path:
         """Create chart showing success rates for different goals."""
         try:
-            goals = [goal.name for goal in retirement_analysis.goals]
-            success_rates = [goal.success_rate for goal in retirement_analysis.goals]
+            goals = [gs.goal_name for gs in retirement_analysis.goal_statuses]
+            success_rates = [gs.success_rate for gs in retirement_analysis.goal_statuses]
 
             fig, ax = plt.subplots(figsize=(10, 6))
 
@@ -134,7 +134,7 @@ class ChartCreator:
             plt.savefig(output_path, dpi=300, bbox_inches='tight')
             plt.close()
 
-            self.logger.log(f"Success rate chart saved to {output_path}", level="info")
+            self.logger.log(LogLevel.INFO, f"Success rate chart saved to {output_path}")
             return output_path
 
         except Exception as e:
@@ -148,44 +148,80 @@ class ChartCreator:
     ) -> Path:
         """Create chart comparing different withdrawal strategies."""
         try:
-            strategies = [strategy.name for strategy in withdrawal_result.strategies]
-            success_rates = [strategy.success_rate for strategy in withdrawal_result.strategies]
-            avg_withdrawals = [strategy.avg_annual_withdrawal for strategy in withdrawal_result.strategies]
+            # If strategies attribute exists, use it (multi-strategy case)
+            if hasattr(withdrawal_result, 'strategies') and withdrawal_result.strategies:
+                strategies = [strategy.name for strategy in withdrawal_result.strategies]
+                success_rates = [strategy.success_rate for strategy in withdrawal_result.strategies]
+                avg_withdrawals = [strategy.avg_annual_withdrawal for strategy in withdrawal_result.strategies]
 
-            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+                fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
 
-            # Success rates
-            bars1 = ax1.bar(strategies, success_rates, color='#2ca02c', alpha=0.7)
-            for bar, rate in zip(bars1, success_rates):
-                height = bar.get_height()
-                ax1.text(bar.get_x() + bar.get_width()/2., height + 1,
-                        f'{rate:.1f}%', ha='center', va='bottom')
+                # Success rates
+                bars1 = ax1.bar(strategies, success_rates, color='#2ca02c', alpha=0.7)
+                for bar, rate in zip(bars1, success_rates):
+                    height = bar.get_height()
+                    ax1.text(bar.get_x() + bar.get_width()/2., height + 1,
+                            f'{rate:.1f}%', ha='center', va='bottom')
 
-            ax1.set_xlabel('Withdrawal Strategy')
-            ax1.set_ylabel('Success Rate (%)')
-            ax1.set_title('Success Rates by Strategy')
-            ax1.set_ylim(0, 100)
-            ax1.grid(True, alpha=0.3, axis='y')
-            plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha='right')
+                ax1.set_xlabel('Withdrawal Strategy')
+                ax1.set_ylabel('Success Rate (%)')
+                ax1.set_title('Success Rates by Strategy')
+                ax1.set_ylim(0, 100)
+                ax1.grid(True, alpha=0.3, axis='y')
+                plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha='right')
 
-            # Average withdrawals
-            bars2 = ax2.bar(strategies, avg_withdrawals, color='#d62728', alpha=0.7)
-            for bar, amount in zip(bars2, avg_withdrawals):
-                height = bar.get_height()
-                ax2.text(bar.get_x() + bar.get_width()/2., height + 1000,
-                        f'${amount/1000:.0f}K', ha='center', va='bottom')
+                # Average withdrawals
+                bars2 = ax2.bar(strategies, avg_withdrawals, color='#d62728', alpha=0.7)
+                for bar, amount in zip(bars2, avg_withdrawals):
+                    height = bar.get_height()
+                    ax2.text(bar.get_x() + bar.get_width()/2., height + 1000,
+                            f'${amount/1000:.0f}K', ha='center', va='bottom')
 
-            ax2.set_xlabel('Withdrawal Strategy')
-            ax2.set_ylabel('Average Annual Withdrawal ($)')
-            ax2.set_title('Average Annual Withdrawals')
-            ax2.grid(True, alpha=0.3, axis='y')
-            plt.setp(ax2.xaxis.get_majorticklabels(), rotation=45, ha='right')
+                ax2.set_xlabel('Withdrawal Strategy')
+                ax2.set_ylabel('Average Annual Withdrawal ($)')
+                ax2.set_title('Average Annual Withdrawals')
+                ax2.grid(True, alpha=0.3, axis='y')
+                plt.setp(ax2.xaxis.get_majorticklabels(), rotation=45, ha='right')
 
-            plt.tight_layout()
-            plt.savefig(output_path, dpi=300, bbox_inches='tight')
-            plt.close()
+                plt.tight_layout()
+                plt.savefig(output_path, dpi=300, bbox_inches='tight')
+                plt.close()
+            else:
+                # Single optimal strategy case
+                labels = ['Optimal Strategy']
+                success_rates = [withdrawal_result.success_rate]
+                avg_withdrawals = [withdrawal_result.optimal_annual_withdrawal]
 
-            self.logger.log(f"Withdrawal strategy chart saved to {output_path}", level="info")
+                fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
+
+                # Success rate bar
+                bars1 = ax1.bar(labels, success_rates, color='#2ca02c', alpha=0.7)
+                for bar, rate in zip(bars1, success_rates):
+                    height = bar.get_height()
+                    ax1.text(bar.get_x() + bar.get_width()/2., height + 1,
+                            f'{rate:.1f}%', ha='center', va='bottom')
+                ax1.set_xlabel('Strategy')
+                ax1.set_ylabel('Success Rate (%)')
+                ax1.set_title('Optimal Withdrawal Success Rate')
+                ax1.set_ylim(0, 100)
+                ax1.grid(True, alpha=0.3, axis='y')
+
+                # Average withdrawal bar
+                bars2 = ax2.bar(labels, avg_withdrawals, color='#d62728', alpha=0.7)
+                for bar, amount in zip(bars2, avg_withdrawals):
+                    height = bar.get_height()
+                    ax2.text(bar.get_x() + bar.get_width()/2., height + 1000,
+                            f'${amount/1000:.0f}K', ha='center', va='bottom')
+                ax2.set_xlabel('Strategy')
+                ax2.set_ylabel('Average Annual Withdrawal ($)')
+                ax2.set_title('Optimal Annual Withdrawal')
+                ax2.grid(True, alpha=0.3, axis='y')
+
+                plt.tight_layout()
+                plt.savefig(output_path, dpi=300, bbox_inches='tight')
+                plt.close()
+
+            self.logger.log(LogLevel.INFO, f"Withdrawal strategy chart saved to {output_path}")
             return output_path
 
         except Exception as e:
@@ -215,7 +251,7 @@ class ChartCreator:
             plt.savefig(output_path, dpi=300, bbox_inches='tight')
             plt.close()
 
-            self.logger.log(f"Asset allocation chart saved to {output_path}", level="info")
+            self.logger.log(LogLevel.INFO, f"Asset allocation chart saved to {output_path}")
             return output_path
 
         except Exception as e:
@@ -261,7 +297,7 @@ class DataExporter:
         df = pd.DataFrame(data)
         df.to_csv(output_path, index=False)
 
-        self.logger.log(f"Simulation data exported to CSV: {output_path}", level="info")
+        self.logger.log(LogLevel.INFO, f"Simulation data exported to CSV: {output_path}")
         return output_path
 
     def _export_simulation_json(self, simulation_result: SimulationResult, output_path: Path) -> Path:
@@ -287,7 +323,7 @@ class DataExporter:
         with open(output_path, 'w') as f:
             json.dump(data, f, indent=2)
 
-        self.logger.log(f"Simulation data exported to JSON: {output_path}", level="info")
+        self.logger.log(LogLevel.INFO, f"Simulation data exported to JSON: {output_path}")
         return output_path
 
     def export_analysis_summary(
@@ -302,16 +338,17 @@ class DataExporter:
                 'metadata': {
                     'analysis_date': datetime.now().isoformat(),
                     'person_name': retirement_analysis.person.name,
-                    'total_goals': len(retirement_analysis.goals)
+                    'total_goals': len(retirement_analysis.goal_statuses)
                 },
                 'goals': [
                     {
-                        'name': goal.name,
-                        'success_rate': goal.success_rate,
-                        'target_amount': goal.target_amount,
-                        'priority': goal.priority
+                        'name': goal_status.goal_name,
+                        'success_rate': goal_status.success_rate,
+                        'achieved': goal_status.achieved,
+                        'average_shortfall': goal_status.average_shortfall,
+                        'worst_case_shortfall': goal_status.worst_case_shortfall
                     }
-                    for goal in retirement_analysis.goals
+                    for goal_status in retirement_analysis.goal_statuses
                 ],
                 'overall_success_rate': retirement_analysis.overall_success_rate,
                 'recommendations': retirement_analysis.recommendations
@@ -320,7 +357,7 @@ class DataExporter:
             with open(output_path, 'w') as f:
                 json.dump(summary, f, indent=2)
 
-            self.logger.log(f"Analysis summary exported to JSON: {output_path}", level="info")
+            self.logger.log(LogLevel.INFO, f"Analysis summary exported to JSON: {output_path}")
             return output_path
 
         except Exception as e:
@@ -397,7 +434,7 @@ class ReportGenerator:
                     retirement_analysis, summary_path
                 )
 
-            self.logger.log(f"Comprehensive report generated in {output_dir}", level="success")
+            self.logger.log(LogLevel.SUCCESS, f"Comprehensive report generated in {output_dir}")
             return report_files
 
         except Exception as e:
@@ -425,34 +462,45 @@ class ReportGenerator:
                 f.write(f"Current Age: {retirement_analysis.person.age}\n")
                 f.write(f"Retirement Age: {retirement_analysis.person.retirement_age}\n")
                 f.write(f"Life Expectancy: {retirement_analysis.person.life_expectancy}\n")
-                f.write(f"Current Savings: ${retirement_analysis.person.current_savings:,.0f}\n")
-                f.write(f"Annual Contribution: ${retirement_analysis.person.annual_contribution:,.0f}\n\n")
+                f.write(f"Current Portfolio Value: ${retirement_analysis.portfolio.total_value:,.0f}\n")
+                f.write(f"Risk Tolerance: {retirement_analysis.person.risk_tolerance}\n\n")
 
                 # Simulation results
                 f.write("SIMULATION RESULTS\n")
                 f.write("-" * 40 + "\n")
-                f.write(f"Number of Scenarios: {simulation_result.num_scenarios:,}\n")
+                f.write(f"Number of Scenarios: {len(simulation_result.scenarios):,}\n")
                 f.write(f"Time Horizon: {simulation_result.time_horizon} years\n")
                 f.write(f"Overall Success Rate: {simulation_result.success_rate:.1f}%\n")
-                f.write(f"Average Final Portfolio Value: ${simulation_result.avg_final_value:,.0f}\n")
-                f.write(f"Median Final Portfolio Value: ${simulation_result.median_final_value:,.0f}\n\n")
+                f.write(f"Average Final Portfolio Value: ${simulation_result.average_portfolio_value:,.0f}\n")
+                f.write(f"Median Final Portfolio Value: ${simulation_result.median_portfolio_value:,.0f}\n")
+                f.write(f"Best Case Final Value: ${simulation_result.best_case_portfolio_value:,.0f}\n")
+                f.write(f"Worst Case Final Value: ${simulation_result.worst_case_portfolio_value:,.0f}\n")
+                if simulation_result.average_years_to_failure:
+                    f.write(f"Average Years to Failure: {simulation_result.average_years_to_failure:.1f}\n")
+                f.write("\n")
 
                 # Goal analysis
                 f.write("GOAL ANALYSIS\n")
                 f.write("-" * 40 + "\n")
-                for goal in retirement_analysis.goals:
-                    f.write(f"Goal: {goal.name}\n")
-                    f.write(f"  Target Amount: ${goal.target_amount:,.0f}\n")
-                    f.write(f"  Success Rate: {goal.success_rate:.1f}%\n")
-                    f.write(f"  Priority: {goal.priority}\n\n")
+                for goal_status in retirement_analysis.goal_statuses:
+                    f.write(f"Goal: {goal_status.goal_name}\n")
+                    f.write(f"  Success Rate: {goal_status.success_rate:.1f}%\n")
+                    f.write(f"  Achieved: {'Yes' if goal_status.achieved else 'No'}\n")
+                    f.write(f"  Average Shortfall: ${goal_status.average_shortfall:,.0f}\n")
+                    f.write(f"  Worst Case Shortfall: ${goal_status.worst_case_shortfall:,.0f}\n")
+                    if goal_status.years_to_achievement:
+                        f.write(f"  Years to Achievement: {goal_status.years_to_achievement:.1f}\n")
+                    f.write("\n")
 
                 # Withdrawal strategy results
                 if withdrawal_result:
                     f.write("WITHDRAWAL STRATEGY ANALYSIS\n")
                     f.write("-" * 40 + "\n")
-                    f.write(f"Best Strategy: {withdrawal_result.best_strategy.name}\n")
-                    f.write(f"Best Success Rate: {withdrawal_result.best_strategy.success_rate:.1f}%\n")
-                    f.write(f"Recommended Annual Withdrawal: ${withdrawal_result.best_strategy.avg_annual_withdrawal:,.0f}\n\n")
+                    f.write(f"Optimal Withdrawal Rate: {withdrawal_result.optimal_withdrawal_rate:.1%}\n")
+                    f.write(f"Optimal Annual Withdrawal: ${withdrawal_result.optimal_annual_withdrawal:,.0f}\n")
+                    f.write(f"Success Rate: {withdrawal_result.success_rate:.1f}%\n")
+                    f.write(f"Average Portfolio Value: ${withdrawal_result.average_portfolio_value:,.0f}\n")
+                    f.write(f"Worst Case Portfolio Value: ${withdrawal_result.worst_case_portfolio_value:,.0f}\n\n")
 
                 # Recommendations
                 f.write("RECOMMENDATIONS\n")
@@ -465,7 +513,7 @@ class ReportGenerator:
                 f.write("End of Report\n")
                 f.write("=" * 80 + "\n")
 
-            self.logger.log(f"Text report generated: {output_path}", level="info")
+            self.logger.log(LogLevel.INFO, f"Text report generated: {output_path}")
             return output_path
 
         except Exception as e:

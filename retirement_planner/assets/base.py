@@ -22,6 +22,42 @@ class AssetType(Enum):
     CUSTOM = "custom"
     CASH = "cash"
 
+    @classmethod
+    def from_string(cls, asset_type_str: str) -> 'AssetType':
+        """Create AssetType from string, handling common aliases."""
+        # Define aliases for common asset type names
+        aliases = {
+            'stocks': 'equity',
+            'stock': 'equity',
+            'equities': 'equity',
+            'bonds': 'bond',
+            'fixed_income': 'bond',
+            'cash_equivalent': 'cash',
+            'cash_equivalents': 'cash',
+            'real_estate': 'real_estate',
+            'property': 'real_estate',
+            'commodities': 'commodity',
+            'precious_metals': 'commodity',
+            'custom_asset': 'custom',
+            'alternative': 'custom'
+        }
+
+        # Normalize the input string
+        normalized = asset_type_str.lower().strip()
+
+        # Check if it's a direct match first
+        try:
+            return cls(normalized)
+        except ValueError:
+            pass
+
+        # Check if it's an alias
+        if normalized in aliases:
+            return cls(aliases[normalized])
+
+        # If still not found, raise the original error
+        raise ValueError(f"'{asset_type_str}' is not a valid AssetType")
+
 
 @dataclass(frozen=True)
 class AssetMetrics:
@@ -164,8 +200,8 @@ class AssetFactory:
     def create_asset(asset_type: str, **kwargs) -> Asset:
         """Create an asset instance based on type."""
         try:
-            asset_enum = AssetType(asset_type)
-        except ValueError:
+            asset_enum = AssetType.from_string(asset_type)
+        except ValueError as e:
             raise AssetError(f"Invalid asset type: {asset_type}")
 
         # This would be expanded when specific asset classes are implemented
@@ -185,7 +221,7 @@ class AssetFactory:
 
         return Asset(
             name=data['name'],
-            asset_type=AssetType(data['asset_type']),
+            asset_type=AssetType.from_string(data['asset_type']),
             current_value=data['current_value'],
             expected_return=data['expected_return'],
             volatility=data['volatility'],

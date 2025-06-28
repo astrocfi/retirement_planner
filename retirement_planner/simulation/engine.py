@@ -40,6 +40,7 @@ class SimulationResult:
     median_portfolio_value: float
     worst_case_portfolio_value: float
     best_case_portfolio_value: float
+    time_horizon: int
     average_years_to_failure: Optional[float] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -139,11 +140,14 @@ class MarketSimulator:
             # Update portfolio values based on returns
             new_asset_values = {}
             for asset_name, asset in current_portfolio.assets.items():
+                current_value = current_portfolio.asset_values[asset_name]
                 if asset_name in year_returns:
-                    current_value = current_portfolio.asset_values[asset_name]
                     return_rate = year_returns[asset_name]
                     new_value = current_value * (1 + return_rate)
-                    new_asset_values[asset_name] = new_value
+                else:
+                    # If no return data for this asset, keep the same value
+                    new_value = current_value
+                new_asset_values[asset_name] = new_value
 
             # Create new portfolio with updated values
             current_portfolio = current_portfolio.__class__(
@@ -286,7 +290,7 @@ class MonteCarloEngine:
                 simulation_scenarios.append(simulation_scenario)
 
             # Calculate results
-            result = self._calculate_results(simulation_scenarios)
+            result = self._calculate_results(simulation_scenarios, time_horizon)
 
             self.logger.log(LogLevel.SUCCESS, f"Simulation complete. Success rate: {result.success_rate:.1%}")
 
@@ -295,7 +299,7 @@ class MonteCarloEngine:
         except Exception as e:
             raise SimulationError(f"Simulation failed: {e}") from e
 
-    def _calculate_results(self, scenarios: List[SimulationScenario]) -> SimulationResult:
+    def _calculate_results(self, scenarios: List[SimulationScenario], time_horizon: int) -> SimulationResult:
         """Calculate aggregate results from simulation scenarios."""
         if not scenarios:
             raise SimulationError("No scenarios provided for result calculation")
@@ -328,5 +332,6 @@ class MonteCarloEngine:
             median_portfolio_value=median_portfolio_value,
             worst_case_portfolio_value=worst_case_portfolio_value,
             best_case_portfolio_value=best_case_portfolio_value,
+            time_horizon=time_horizon,
             average_years_to_failure=average_years_to_failure
         )

@@ -52,8 +52,8 @@ def add_common_arguments(parser):
 def validate_configs(args):
     """Validate all configuration files and print errors/warnings."""
     from retirement_planner.core.config import ConfigLoader
-    from retirement_planner.core.logging import RetirementPlannerLogger
-    logger = RetirementPlannerLogger(level="INFO" if args.verbose else "WARNING")
+    from retirement_planner.core.logging import RetirementPlannerLogger, LogLevel
+    logger = RetirementPlannerLogger(log_level=LogLevel.INFO if args.verbose else LogLevel.WARNING)
     success = True
     for name, path in [
         ("Person profile", args.person_profile),
@@ -61,13 +61,13 @@ def validate_configs(args):
         ("Market data", args.market_data),
         ("Simulation config", args.simulation_config),
     ]:
-        logger.log(f"Validating {name} file: {path}", level="info")
+        logger.log(LogLevel.INFO, f"Validating {name} file: {path}")
         loader = ConfigLoader()
         try:
             loader.load_from_file(path)
-            logger.log(f"{name} file loaded and validated successfully.", level="success")
+            logger.log(LogLevel.SUCCESS, f"{name} file loaded and validated successfully.")
         except Exception as e:
-            logger.log(f"{name} file validation failed: {e}", level="error")
+            logger.log(LogLevel.ERROR, f"{name} file validation failed: {e}")
             success = False
     if not success:
         print("\nValidation failed. Please fix the above errors.")
@@ -86,22 +86,22 @@ def analyze(args):
 
     try:
         from retirement_planner.core.config import ConfigLoader
-        from retirement_planner.core.logging import RetirementPlannerLogger
+        from retirement_planner.core.logging import RetirementPlannerLogger, LogLevel
         from retirement_planner.models.person import Person, Goal
         from retirement_planner.models.events import EventManager, Event, EventType, Period
-        from retirement_planner.models.portfolio import Portfolio, AssetAllocation
-        from retirement_planner.assets.factory import AssetFactory
+        from retirement_planner.models.portfolio import Portfolio, AssetAllocation, StaticRebalancingStrategy
+        from retirement_planner.assets.base import AssetFactory
         from retirement_planner.simulation.engine import MonteCarloEngine, RandomScenarioGenerator, MarketSimulator
-        from retirement_planner.simulation.market import CorrelatedMarketModel
+        from retirement_planner.simulation.market import CorrelatedMarketModel, CorrelationModel
         from retirement_planner.analysis.retirement import RetirementAnalyzer
         from retirement_planner.analysis.withdrawal import WithdrawalOptimizer
         from retirement_planner.reports.generator import ReportGenerator, ReportConfig
 
-        logger = RetirementPlannerLogger(level="INFO" if args.verbose else "WARNING")
-        logger.log("Starting comprehensive retirement analysis", level="info")
+        logger = RetirementPlannerLogger(log_level=LogLevel.INFO if args.verbose else LogLevel.WARNING)
+        logger.log(LogLevel.INFO, "Starting comprehensive retirement analysis")
 
         # Load person profile
-        logger.log("Loading person profile...", level="info")
+        logger.log(LogLevel.INFO, "Loading person profile...")
         person_loader = ConfigLoader()
         person_loader.load_from_file(args.person_profile)
         person_data = person_loader.config_data
@@ -110,20 +110,17 @@ def analyze(args):
             age=person_data["age"],
             retirement_age=person_data["retirement_age"],
             life_expectancy=person_data["life_expectancy"],
-            current_savings=person_data["current_savings"],
-            annual_contribution=person_data["annual_contribution"],
             risk_tolerance=person_data["risk_tolerance"],
             tax_filing_status=person_data["tax_filing_status"],
             state_of_residence=person_data["state_of_residence"],
             goals=[Goal(**goal) for goal in person_data["goals"]],
             additional_data=person_data.get("additional_data", {})
         )
-        logger.log(f"Loaded person profile for {person.name}", level="info")
-        logger.log(f"Current age: {person.age}, Retirement age: {person.retirement_age}", level="info")
-        logger.log(f"Current savings: ${person.current_savings:,.0f}", level="info")
+        logger.log(LogLevel.INFO, f"Loaded person profile for {person.name}")
+        logger.log(LogLevel.INFO, f"Current age: {person.age}, Retirement age: {person.retirement_age}")
 
         # Load events
-        logger.log("Loading events configuration...", level="info")
+        logger.log(LogLevel.INFO, "Loading events configuration...")
         events_loader = ConfigLoader()
         events_loader.load_from_file(args.events)
         events_data = events_loader.config_data
@@ -142,65 +139,132 @@ def analyze(args):
                     metadata=event_data.get("metadata", {})
                 )
                 event_manager.add_event(event)
-        logger.log(f"Loaded {len(event_manager.events)} events", level="info")
+        logger.log(LogLevel.INFO, f"Loaded {len(event_manager.events)} events")
+
+        # Extract initial portfolio value from events
+        initial_portfolio_event = None
+        for event in event_manager.events:
+            if event.name == "initial_portfolio":
+                initial_portfolio_event = event
+                break
+
+        if initial_portfolio_event:
+            logger.log(LogLevel.INFO, f"Initial portfolio value: ${initial_portfolio_event.amount:,.0f}")
 
         # Load market data and create portfolio
-        logger.log("Loading market data and creating portfolio...", level="info")
+        logger.log(LogLevel.INFO, "Loading market data and creating portfolio...")
         market_loader = ConfigLoader()
         market_loader.load_from_file(args.market_data)
         market_data = market_loader.config_data
 
-        # Create assets using factory
+        # Create assets using factory - handle both formats
         asset_factory = AssetFactory()
         assets = []
-        for asset_config in market_data["assets"]:
-            asset = asset_factory.create_asset(asset_config)
-            assets.append(asset)
+
+        # Check if we have individual asset configurations or need to create from allocation
+        if "assets" in market_data:
+            # Individual asset configurations provided
+            for asset_config in market_data["assets"]:
+                asset = asset_factory.create_from_dict(asset_config)
+                assets.append(asset)
+        else:
+            # Create assets from allocation percentages
+            allocation = market_data["portfolio_allocation"]
+            expected_returns = market_data["expected_returns"]
+            volatilities = market_data["volatility"]
+
+            # Create basic assets from allocation
+            for asset_type, weight in allocation.items():
+                if weight > 0:
+                    asset_config = {
+                        "name": f"{asset_type.title()} Asset",
+                        "asset_type": asset_type,
+                        "current_value": initial_portfolio_event.amount * weight if initial_portfolio_event else 0,
+                        "expected_return": expected_returns[asset_type],
+                        "volatility": volatilities[asset_type],
+                        "correlation": {},
+                        "description": f"{asset_type.title()} allocation"
+                    }
+                    asset = asset_factory.create_from_dict(asset_config)
+                    assets.append(asset)
 
         # Create portfolio with asset allocation
-        allocation_data = market_data["portfolio_allocation"]
-        allocation = AssetAllocation(
-            assets=assets,
-            target_weights=allocation_data["target_weights"],
-            current_values=allocation_data["current_values"]
-        )
+        if "portfolio_allocation" in market_data:
+            allocation_data = market_data["portfolio_allocation"]
+            # Convert allocation percentages to target weights
+            target_weights = list(allocation_data.values())
+            current_values = [asset.current_value for asset in assets]
+
+            # Create asset dictionaries for portfolio
+            assets_dict = {asset.name: asset for asset in assets}
+            asset_values_dict = {asset.name: asset.current_value for asset in assets}
+
+            # Create allocation using the asset names, not the YAML keys
+            asset_allocation = {asset.name: allocation_data[asset_type] for asset_type, asset in zip(allocation_data.keys(), assets)}
+            allocation = AssetAllocation(allocation=asset_allocation)
+        else:
+            # Use equal weights if no allocation specified
+            target_weights = [1.0 / len(assets)] * len(assets)
+            current_values = [asset.current_value for asset in assets]
+
+            # Create asset dictionaries for portfolio
+            assets_dict = {asset.name: asset for asset in assets}
+            asset_values_dict = {asset.name: asset.current_value for asset in assets}
+
+            # Create equal allocation
+            equal_allocation = {asset.name: 1.0 / len(assets) for asset in assets}
+            allocation = AssetAllocation(allocation=equal_allocation)
 
         portfolio = Portfolio(
-            assets=assets,
+            assets=assets_dict,
             allocation=allocation,
-            rebalancing_strategy="static"
+            asset_values=asset_values_dict,
+            rebalancing_strategy=StaticRebalancingStrategy()
         )
 
-        logger.log(f"Created portfolio with {len(assets)} assets", level="info")
-        logger.log(f"Portfolio value: ${portfolio.get_total_value():,.0f}", level="info")
+        logger.log(LogLevel.INFO, f"Created portfolio with {len(assets)} assets")
+        logger.log(LogLevel.INFO, f"Portfolio value: ${portfolio.total_value:,.0f}")
+        logger.log(LogLevel.INFO, f"Portfolio asset names: {list(portfolio.assets.keys())}")
+        logger.log(LogLevel.INFO, f"Portfolio asset values keys: {list(portfolio.asset_values.keys())}")
 
         # Load simulation configuration
-        logger.log("Loading simulation configuration...", level="info")
+        logger.log(LogLevel.INFO, "Loading simulation configuration...")
         sim_loader = ConfigLoader()
         sim_loader.load_from_file(args.simulation_config)
         sim_data = sim_loader.config_data
 
-        # Create market model
+        # Create market model - handle both formats
+        if "expected_returns" in market_data and "volatility" in market_data:
+            # Use the allocation-based format
+            expected_returns = list(market_data["expected_returns"].values())
+            volatilities = list(market_data["volatility"].values())
+            correlation_matrix = market_data["correlation_matrix"]
+        else:
+            # Use asset-specific format
+            expected_returns = [asset.expected_return for asset in assets]
+            volatilities = [asset.volatility for asset in assets]
+            # Create identity correlation matrix
+            correlation_matrix = [[1.0 if i == j else 0.0 for j in range(len(assets))] for i in range(len(assets))]
+
+        # Create correlation model
+        correlation_model = CorrelationModel(correlation_matrix=correlation_matrix)
+
         market_model = CorrelatedMarketModel(
-            assets=assets,
-            expected_returns=market_data["expected_returns"],
-            volatilities=market_data["volatilities"],
-            correlation_matrix=market_data["correlation_matrix"],
+            correlation_model=correlation_model,
             seed=sim_data["simulation"].get("seed", None)
         )
 
         # Run Monte Carlo simulation
-        logger.log("Running Monte Carlo simulation...", level="info")
-        logger.log(f"Scenarios: {sim_data['simulation']['num_scenarios']:,}", level="info")
-        logger.log(f"Time horizon: {sim_data['simulation']['time_horizon']} years", level="info")
+        logger.log(LogLevel.INFO, "Running Monte Carlo simulation...")
+        logger.log(LogLevel.INFO, f"Scenarios: {sim_data['simulation']['num_scenarios']:,}")
+        logger.log(LogLevel.INFO, f"Time horizon: {sim_data['simulation']['time_horizon']} years")
 
         scenario_generator = RandomScenarioGenerator(
-            time_horizon=sim_data["simulation"]["time_horizon"]
+            seed=sim_data["simulation"].get("seed", None)
         )
 
         market_simulator = MarketSimulator(
-            market_model=market_model,
-            event_manager=event_manager
+            correlation_matrix=correlation_matrix
         )
 
         simulation_engine = MonteCarloEngine(
@@ -209,38 +273,54 @@ def analyze(args):
             logger=logger
         )
 
+        # Prepare cash flows from events
+        time_horizon = sim_data["simulation"]["time_horizon"]
+        withdrawals = [0.0] * time_horizon  # Placeholder - should be calculated from events
+        contributions = [0.0] * time_horizon  # Placeholder - should be calculated from events
+
+        # Debug: Check what simulate_returns returns
+        test_returns = market_simulator.simulate_returns(portfolio.assets, 1)
+        logger.log(LogLevel.INFO, f"Test returns keys: {list(test_returns.keys())}")
+        logger.log(LogLevel.INFO, f"Test returns values: {test_returns}")
+
         simulation_result = simulation_engine.run_simulation(
             portfolio=portfolio,
             num_scenarios=sim_data["simulation"]["num_scenarios"],
-            person=person
+            time_horizon=time_horizon,
+            withdrawals=withdrawals,
+            contributions=contributions,
+            seed=sim_data["simulation"].get("seed", None)
         )
 
-        logger.log(f"Simulation completed. Success rate: {simulation_result.success_rate:.1f}%", level="success")
+        logger.log(LogLevel.SUCCESS, f"Simulation completed. Success rate: {simulation_result.success_rate:.1f}%")
 
         # Run retirement analysis
-        logger.log("Running retirement analysis...", level="info")
+        logger.log(LogLevel.INFO, "Running retirement analysis...")
         retirement_analyzer = RetirementAnalyzer(logger=logger)
         retirement_analysis = retirement_analyzer.analyze_retirement(
             person=person,
-            simulation_result=simulation_result,
-            goals=person.goals
+            portfolio=portfolio,
+            simulation_result=simulation_result
         )
 
-        logger.log(f"Analysis completed. Overall success rate: {retirement_analysis.overall_success_rate:.1f}%", level="success")
+        logger.log(LogLevel.SUCCESS, f"Analysis completed. Overall success rate: {retirement_analysis.overall_success_rate:.1f}%")
 
         # Run withdrawal strategy optimization
-        logger.log("Optimizing withdrawal strategies...", level="info")
+        logger.log(LogLevel.INFO, "Optimizing withdrawal strategies...")
         withdrawal_optimizer = WithdrawalOptimizer(logger=logger)
-        withdrawal_result = withdrawal_optimizer.optimize_withdrawal_strategies(
-            person=person,
+        withdrawal_result = withdrawal_optimizer.optimize_withdrawal_rate(
+            portfolio=portfolio,
             simulation_result=simulation_result,
-            target_income=person.goals[0].target_amount if person.goals else 50000
+            strategy_type="percentage",
+            min_rate=0.02,
+            max_rate=0.08,
+            step_size=0.001
         )
 
-        logger.log(f"Withdrawal optimization completed. Best strategy: {withdrawal_result.best_strategy.name}", level="success")
+        logger.log(LogLevel.SUCCESS, f"Withdrawal optimization completed. Optimal rate: {withdrawal_result.optimal_withdrawal_rate:.1%}")
 
         # Generate comprehensive report
-        logger.log("Generating comprehensive report...", level="info")
+        logger.log(LogLevel.INFO, "Generating comprehensive report...")
         report_config = ReportConfig(
             output_format="text",
             include_charts=True,
@@ -263,15 +343,15 @@ def analyze(args):
         print(f"Person: {person.name}")
         print(f"Working years remaining: {person.get_working_years()}")
         print(f"Retirement years: {person.get_retirement_years()}")
-        print(f"Portfolio value: ${portfolio.get_total_value():,.0f}")
-        print(f"Simulation scenarios: {simulation_result.num_scenarios:,}")
+        print(f"Portfolio value: ${portfolio.total_value:,.0f}")
+        print(f"Simulation scenarios: {len(simulation_result.scenarios):,}")
         print(f"Overall success rate: {retirement_analysis.overall_success_rate:.1f}%")
-        print(f"Best withdrawal strategy: {withdrawal_result.best_strategy.name}")
-        print(f"Recommended annual withdrawal: ${withdrawal_result.best_strategy.avg_annual_withdrawal:,.0f}")
+        print(f"Optimal withdrawal rate: {withdrawal_result.optimal_withdrawal_rate:.1%}")
+        print(f"Optimal annual withdrawal: ${withdrawal_result.optimal_annual_withdrawal:,.0f}")
         print(f"Output directory: {output_dir.absolute()}")
         print("=" * 60)
 
-        logger.log("Comprehensive analysis completed successfully", level="success")
+        logger.log(LogLevel.SUCCESS, "Comprehensive analysis completed successfully")
 
     except Exception as e:
         print(f"Error during analysis: {e}")
@@ -302,7 +382,7 @@ def simulate(args):
         from retirement_planner.models.person import Person, Goal
         from retirement_planner.models.events import EventManager, Event, EventType, Period
         from retirement_planner.models.portfolio import Portfolio, AssetAllocation
-        from retirement_planner.assets.factory import AssetFactory
+        from retirement_planner.assets.base import AssetFactory
         from retirement_planner.simulation.engine import MonteCarloEngine, RandomScenarioGenerator, MarketSimulator
         from retirement_planner.simulation.market import CorrelatedMarketModel
         from retirement_planner.reports.generator import DataExporter

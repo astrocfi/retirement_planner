@@ -185,6 +185,11 @@ class PortfolioError(RetirementPlannerException):
     pass
 
 
+class AnalysisError(RetirementPlannerException):
+    """Raised for analysis engine errors."""
+    pass
+
+
 # Convenience functions for creating exceptions with context
 def create_validation_error(
     message: str,

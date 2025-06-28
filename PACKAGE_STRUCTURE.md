@@ -159,6 +159,10 @@ All asset types (including custom) are present and tested.
 - **file_utils.py**: File I/O, configuration file handling
 - **validation_utils.py**: Validation helper functions
 
+### Analysis Modules
+- **retirement.py**: RetirementAnalyzer, GoalTracker, SuccessCalculator, GoalStatus, RetirementAnalysis
+- **withdrawal.py**: WithdrawalStrategy, FixedWithdrawalStrategy, PercentageWithdrawalStrategy, InflationAdjustedWithdrawalStrategy, DynamicWithdrawalStrategy, WithdrawalOptimizer, WithdrawalPlan, WithdrawalOptimizationResult
+
 ## Key Design Principles
 
 1. **Modularity**: Each module has a single responsibility

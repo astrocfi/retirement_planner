@@ -87,8 +87,8 @@ def simulation_result():
         SimulationScenario(
             scenario_id=1,
             years=[0, 1, 2],
-            portfolio_values=[100000, 95000, 90000],
-            returns=[-0.05, -0.053],
+            portfolio_values=[100000, 105000, 110000],
+            returns=[0.05, 0.048],
             withdrawals=[5000, 5000],
             contributions=[10000, 10000],
             allocation_percentages=[{'StockA': 0.6}, {'StockA': 0.6}, {'StockA': 0.6}],
@@ -100,7 +100,7 @@ def simulation_result():
             portfolio_values=[100000, 0],
             returns=[-1.0],
             withdrawals=[5000],
-            contributions=[0],
+            contributions=[10000],
             allocation_percentages=[{'StockA': 0.6}, {'StockA': 0.6}],
             success=False,
             failure_year=1
@@ -114,6 +114,7 @@ def simulation_result():
         median_portfolio_value=100000,
         worst_case_portfolio_value=0,
         best_case_portfolio_value=110000,
+        time_horizon=2,
         average_years_to_failure=1.0
     )
 
@@ -396,7 +397,8 @@ class TestRetirementAnalyzer:
             average_portfolio_value=0.0,
             median_portfolio_value=0.0,
             worst_case_portfolio_value=0.0,
-            best_case_portfolio_value=0.0
+            best_case_portfolio_value=0.0,
+            time_horizon=10
         )
 
         with pytest.raises(AnalysisError):

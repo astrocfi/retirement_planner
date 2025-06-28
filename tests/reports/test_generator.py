@@ -81,15 +81,74 @@ class TestChartCreator:
 
     @patch('matplotlib.pyplot.savefig')
     @patch('matplotlib.pyplot.close')
+    def test_create_simulation_paths_chart(self, mock_close, mock_savefig):
+        """Test simulation paths chart creation."""
+        # Create mock simulation result with mixed success/failure scenarios
+        mock_success_scenario = Mock()
+        mock_success_scenario.portfolio_values = [100000, 105000, 110000, 108000, 115000]
+        mock_success_scenario.success = True
+
+        mock_failure_scenario = Mock()
+        mock_failure_scenario.portfolio_values = [100000, 95000, 90000, 85000, 80000]
+        mock_failure_scenario.success = False
+
+        mock_simulation_result = Mock()
+        mock_simulation_result.time_horizon = 4
+        mock_simulation_result.success_rate = 0.6
+        mock_simulation_result.scenarios = [mock_success_scenario] * 6 + [mock_failure_scenario] * 4  # 10 scenarios
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "simulation_paths_chart.png"
+
+            result_path = self.chart_creator.create_simulation_paths_chart(
+                simulation_result=mock_simulation_result,
+                output_path=output_path
+            )
+
+            assert result_path == output_path
+            mock_savefig.assert_called_once()
+            mock_close.assert_called_once()
+            self.logger.log.assert_called()
+
+    @patch('matplotlib.pyplot.savefig')
+    @patch('matplotlib.pyplot.close')
+    def test_create_simulation_paths_chart_with_many_scenarios(self, mock_close, mock_savefig):
+        """Test simulation paths chart with many scenarios (should sample)."""
+        # Create mock simulation result with many scenarios
+        mock_scenario = Mock()
+        mock_scenario.portfolio_values = [100000, 105000, 110000, 108000, 115000]
+        mock_scenario.success = True
+
+        mock_simulation_result = Mock()
+        mock_simulation_result.time_horizon = 4
+        mock_simulation_result.success_rate = 0.8
+        mock_simulation_result.scenarios = [mock_scenario] * 200  # 200 scenarios
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "simulation_paths_chart.png"
+
+            result_path = self.chart_creator.create_simulation_paths_chart(
+                simulation_result=mock_simulation_result,
+                output_path=output_path,
+                max_paths=50  # Limit to 50 paths
+            )
+
+            assert result_path == output_path
+            mock_savefig.assert_called_once()
+            mock_close.assert_called_once()
+            self.logger.log.assert_called()
+
+    @patch('matplotlib.pyplot.savefig')
+    @patch('matplotlib.pyplot.close')
     def test_create_success_rate_chart(self, mock_close, mock_savefig):
         """Test success rate chart creation."""
         # Create mock retirement analysis
-        mock_goal = Mock()
-        mock_goal.name = "Retirement Goal"
-        mock_goal.success_rate = 85.5
+        mock_goal_status = Mock()
+        mock_goal_status.goal_name = "Retirement Goal"
+        mock_goal_status.success_rate = 0.855
 
         mock_retirement_analysis = Mock()
-        mock_retirement_analysis.goals = [mock_goal]
+        mock_retirement_analysis.goal_statuses = [mock_goal_status]
 
         with tempfile.TemporaryDirectory() as temp_dir:
             output_path = Path(temp_dir) / "success_chart.png"
@@ -116,6 +175,11 @@ class TestChartCreator:
 
         mock_withdrawal_result = Mock()
         mock_withdrawal_result.strategies = [mock_strategy]
+        mock_withdrawal_result.optimal_withdrawal_rate = 0.045
+        mock_withdrawal_result.optimal_annual_withdrawal = 45000
+        mock_withdrawal_result.success_rate = 0.85
+        mock_withdrawal_result.average_portfolio_value = 1200000
+        mock_withdrawal_result.worst_case_portfolio_value = 800000
 
         with tempfile.TemporaryDirectory() as temp_dir:
             output_path = Path(temp_dir) / "withdrawal_chart.png"
@@ -245,19 +309,20 @@ class TestDataExporter:
     def test_export_analysis_summary(self):
         """Test analysis summary export."""
         # Create mock retirement analysis
-        mock_goal = Mock()
-        mock_goal.name = "Retirement Goal"
-        mock_goal.success_rate = 85.5
-        mock_goal.target_amount = 1000000
-        mock_goal.priority = "high"
+        mock_goal_status = Mock()
+        mock_goal_status.goal_name = "Retirement Goal"
+        mock_goal_status.success_rate = 0.855
+        mock_goal_status.achieved = True
+        mock_goal_status.average_shortfall = 0
+        mock_goal_status.worst_case_shortfall = 0
 
         mock_person = Mock()
         mock_person.name = "John Doe"
 
         mock_retirement_analysis = Mock()
         mock_retirement_analysis.person = mock_person
-        mock_retirement_analysis.goals = [mock_goal]
-        mock_retirement_analysis.overall_success_rate = 85.5
+        mock_retirement_analysis.goal_statuses = [mock_goal_status]
+        mock_retirement_analysis.overall_success_rate = 0.855
         mock_retirement_analysis.recommendations = ["Save more", "Invest wisely"]
 
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -326,29 +391,37 @@ class TestReportGenerator:
         mock_person.current_savings = 500000
         mock_person.annual_contribution = 20000
 
-        mock_goal = Mock()
-        mock_goal.name = "Retirement Goal"
-        mock_goal.target_amount = 1000000
-        mock_goal.success_rate = 85.5
-        mock_goal.priority = "high"
+        mock_goal_status = Mock()
+        mock_goal_status.goal_name = "Retirement Goal"
+        mock_goal_status.success_rate = 0.855
+        mock_goal_status.achieved = True
+        mock_goal_status.average_shortfall = 0
+        mock_goal_status.worst_case_shortfall = 0
+        mock_goal_status.years_to_achievement = 5.0
+
+        mock_portfolio = Mock()
+        mock_portfolio.total_value = 500000
 
         mock_retirement_analysis = Mock()
         mock_retirement_analysis.person = mock_person
-        mock_retirement_analysis.goals = [mock_goal]
+        mock_retirement_analysis.portfolio = mock_portfolio
+        mock_retirement_analysis.goal_statuses = [mock_goal_status]
         mock_retirement_analysis.recommendations = ["Save more", "Invest wisely"]
 
         # Create mock scenarios for simulation result
         mock_scenario = Mock()
-        mock_scenario.portfolio_values = [100000, 105000, 110000, 108000, 115000]
+        mock_scenario.portfolio_values = [100000 + 1000 * i for i in range(21)]  # 21 years for time_horizon=20
         mock_scenario.success = True
 
         mock_simulation_result = Mock()
-        mock_simulation_result.num_scenarios = 1000
-        mock_simulation_result.time_horizon = 20
-        mock_simulation_result.success_rate = 85.5
-        mock_simulation_result.avg_final_value = 1200000
-        mock_simulation_result.median_final_value = 1150000
         mock_simulation_result.scenarios = [mock_scenario] * 10  # 10 scenarios
+        mock_simulation_result.time_horizon = 20
+        mock_simulation_result.success_rate = 0.855
+        mock_simulation_result.average_portfolio_value = 1200000
+        mock_simulation_result.median_portfolio_value = 1150000
+        mock_simulation_result.best_case_portfolio_value = 1500000
+        mock_simulation_result.worst_case_portfolio_value = 800000
+        mock_simulation_result.average_years_to_failure = 5.5
 
         # Create mock withdrawal strategy
         mock_strategy = Mock()
@@ -359,6 +432,11 @@ class TestReportGenerator:
         mock_withdrawal_result = Mock()
         mock_withdrawal_result.best_strategy = mock_strategy
         mock_withdrawal_result.strategies = [mock_strategy]
+        mock_withdrawal_result.optimal_withdrawal_rate = 0.045
+        mock_withdrawal_result.optimal_annual_withdrawal = 45000
+        mock_withdrawal_result.success_rate = 0.85
+        mock_withdrawal_result.average_portfolio_value = 1200000
+        mock_withdrawal_result.worst_case_portfolio_value = 800000
 
         # Setup mock return values
         mock_portfolio_chart.return_value = Path("portfolio_chart.png")
@@ -411,17 +489,29 @@ class TestReportGenerator:
         mock_person.current_savings = 500000
         mock_person.annual_contribution = 20000
 
+        mock_portfolio = Mock()
+        mock_portfolio.total_value = 500000
+
         mock_retirement_analysis = Mock()
         mock_retirement_analysis.person = mock_person
-        mock_retirement_analysis.goals = []
+        mock_retirement_analysis.portfolio = mock_portfolio
+        mock_retirement_analysis.goal_statuses = []
         mock_retirement_analysis.recommendations = []
 
+        # Create mock scenarios for simulation result
+        mock_scenario = Mock()
+        mock_scenario.portfolio_values = [100000 + 1000 * i for i in range(21)]  # 21 years for time_horizon=20
+        mock_scenario.success = True
+
         mock_simulation_result = Mock()
-        mock_simulation_result.num_scenarios = 1000
+        mock_simulation_result.scenarios = [mock_scenario] * 10  # 10 scenarios
         mock_simulation_result.time_horizon = 20
-        mock_simulation_result.success_rate = 85.5
-        mock_simulation_result.avg_final_value = 1200000
-        mock_simulation_result.median_final_value = 1150000
+        mock_simulation_result.success_rate = 0.855
+        mock_simulation_result.average_portfolio_value = 1200000
+        mock_simulation_result.median_portfolio_value = 1150000
+        mock_simulation_result.best_case_portfolio_value = 1500000
+        mock_simulation_result.worst_case_portfolio_value = 800000
+        mock_simulation_result.average_years_to_failure = 5.5
 
         with tempfile.TemporaryDirectory() as temp_dir:
             output_dir = Path(temp_dir) / "reports"
@@ -451,9 +541,13 @@ class TestReportGenerator:
         mock_person.current_savings = 500000
         mock_person.annual_contribution = 20000
 
+        mock_portfolio = Mock()
+        mock_portfolio.total_value = 500000
+
         mock_retirement_analysis = Mock()
         mock_retirement_analysis.person = mock_person
-        mock_retirement_analysis.goals = []
+        mock_retirement_analysis.portfolio = mock_portfolio
+        mock_retirement_analysis.goal_statuses = []
         mock_retirement_analysis.recommendations = []
 
         # Create mock scenarios for simulation result
@@ -462,12 +556,14 @@ class TestReportGenerator:
         mock_scenario.success = True
 
         mock_simulation_result = Mock()
-        mock_simulation_result.num_scenarios = 1000
-        mock_simulation_result.time_horizon = 20
-        mock_simulation_result.success_rate = 85.5
-        mock_simulation_result.avg_final_value = 1200000
-        mock_simulation_result.median_final_value = 1150000
         mock_simulation_result.scenarios = [mock_scenario] * 10  # 10 scenarios
+        mock_simulation_result.time_horizon = 20
+        mock_simulation_result.success_rate = 0.855
+        mock_simulation_result.average_portfolio_value = 1200000
+        mock_simulation_result.median_portfolio_value = 1150000
+        mock_simulation_result.best_case_portfolio_value = 1500000
+        mock_simulation_result.worst_case_portfolio_value = 800000
+        mock_simulation_result.average_years_to_failure = 5.5
 
         with tempfile.TemporaryDirectory() as temp_dir:
             output_dir = Path(temp_dir) / "reports"
@@ -494,23 +590,37 @@ class TestReportGenerator:
         mock_person.current_savings = 500000
         mock_person.annual_contribution = 20000
 
-        mock_goal = Mock()
-        mock_goal.name = "Retirement Goal"
-        mock_goal.target_amount = 1000000
-        mock_goal.success_rate = 85.5
-        mock_goal.priority = "high"
+        mock_goal_status = Mock()
+        mock_goal_status.goal_name = "Retirement Goal"
+        mock_goal_status.success_rate = 0.855
+        mock_goal_status.achieved = True
+        mock_goal_status.average_shortfall = 0
+        mock_goal_status.worst_case_shortfall = 0
+        mock_goal_status.years_to_achievement = 5.0
+
+        mock_portfolio = Mock()
+        mock_portfolio.total_value = 500000
 
         mock_retirement_analysis = Mock()
         mock_retirement_analysis.person = mock_person
-        mock_retirement_analysis.goals = [mock_goal]
+        mock_retirement_analysis.portfolio = mock_portfolio
+        mock_retirement_analysis.goal_statuses = [mock_goal_status]
         mock_retirement_analysis.recommendations = ["Save more", "Invest wisely"]
 
+        # Create mock scenarios for simulation result
+        mock_scenario = Mock()
+        mock_scenario.portfolio_values = [100000 + 1000 * i for i in range(21)]  # 21 years for time_horizon=20
+        mock_scenario.success = True
+
         mock_simulation_result = Mock()
-        mock_simulation_result.num_scenarios = 1000
+        mock_simulation_result.scenarios = [mock_scenario] * 10  # 10 scenarios
         mock_simulation_result.time_horizon = 20
-        mock_simulation_result.success_rate = 85.5
-        mock_simulation_result.avg_final_value = 1200000
-        mock_simulation_result.median_final_value = 1150000
+        mock_simulation_result.success_rate = 0.855
+        mock_simulation_result.average_portfolio_value = 1200000
+        mock_simulation_result.median_portfolio_value = 1150000
+        mock_simulation_result.best_case_portfolio_value = 1500000
+        mock_simulation_result.worst_case_portfolio_value = 800000
+        mock_simulation_result.average_years_to_failure = 5.5
 
         with tempfile.TemporaryDirectory() as temp_dir:
             output_path = Path(temp_dir) / "report.txt"

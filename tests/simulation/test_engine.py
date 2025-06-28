@@ -128,7 +128,8 @@ class TestSimulationResult:
             average_portfolio_value=100000,
             median_portfolio_value=100000,
             worst_case_portfolio_value=95000,
-            best_case_portfolio_value=105000
+            best_case_portfolio_value=105000,
+            time_horizon=2
         )
 
         assert result.success_rate == 1.0
@@ -313,7 +314,7 @@ class TestMonteCarloEngine:
         engine = MonteCarloEngine()
 
         with pytest.raises(SimulationError):
-            engine._calculate_results([])
+            engine._calculate_results([], time_horizon=10)
 
     def test_calculate_results_with_failures(self):
         engine = MonteCarloEngine()
@@ -342,7 +343,7 @@ class TestMonteCarloEngine:
             )
         ]
 
-        result = engine._calculate_results(scenarios)
+        result = engine._calculate_results(scenarios, time_horizon=1)
 
         assert result.success_rate == 0.5
         assert result.average_years_to_failure == 1.0

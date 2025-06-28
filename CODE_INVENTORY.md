@@ -194,7 +194,7 @@
 ### Report Generation
 - **File**: `retirement_planner/reports/generator.py`
   - `ReportGenerator`: Main class for generating comprehensive reports (text, charts, data export).
-  - `ChartCreator`: Generates charts (portfolio evolution, success rates, withdrawal strategies, asset allocation).
+  - `ChartCreator`: Generates charts (portfolio evolution, simulation paths, success rates, withdrawal strategies, asset allocation).
   - `DataExporter`: Exports simulation and analysis data (CSV/JSON formats).
   - `ReportConfig`: Dataclass for report configuration parameters.
 - **Status**: COMPLETED - Full implementation with comprehensive unit tests and 95% code coverage

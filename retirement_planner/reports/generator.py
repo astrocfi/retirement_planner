@@ -102,6 +102,80 @@ class ChartCreator:
         except Exception as e:
             raise AnalysisError(f"Failed to create portfolio evolution chart: {e}")
 
+    def create_simulation_paths_chart(
+        self,
+        simulation_result: SimulationResult,
+        output_path: Path,
+        title: str = "Individual Simulation Paths",
+        max_paths: int = 100
+    ) -> Path:
+        """Create chart showing individual simulation paths overlaid."""
+        try:
+            # Extract portfolio values over time
+            years = list(range(simulation_result.time_horizon + 1))
+
+            # Limit number of paths to avoid overcrowding
+            num_scenarios = len(simulation_result.scenarios)
+            if num_scenarios > max_paths:
+                # Sample paths evenly across the range
+                step = num_scenarios // max_paths
+                selected_scenarios = simulation_result.scenarios[::step][:max_paths]
+                self.logger.log(LogLevel.INFO, f"Showing {len(selected_scenarios)} paths out of {num_scenarios} total scenarios")
+            else:
+                selected_scenarios = simulation_result.scenarios
+
+            # Create the chart
+            fig, ax = plt.subplots(figsize=(14, 8))
+
+            # Plot individual paths
+            colors = plt.cm.viridis(np.linspace(0, 1, len(selected_scenarios)))
+
+            for i, scenario in enumerate(selected_scenarios):
+                # Use different colors for successful vs failed scenarios
+                if scenario.success:
+                    color = '#1f77b4'  # Blue for successful
+                    alpha = 0.3
+                else:
+                    color = '#d62728'  # Red for failed
+                    alpha = 0.5
+
+                ax.plot(years, scenario.portfolio_values, color=color, alpha=alpha, linewidth=0.8)
+
+            # Add median line for reference
+            portfolio_values = np.array([
+                [scenario.portfolio_values[year] for year in years]
+                for scenario in simulation_result.scenarios
+            ])
+            median_values = np.median(portfolio_values, axis=0)
+            ax.plot(years, median_values, color='#2ca02c', linewidth=3, label='Median Path', zorder=10)
+
+            # Add success/failure legend
+            from matplotlib.lines import Line2D
+            legend_elements = [
+                Line2D([0], [0], color='#1f77b4', alpha=0.5, linewidth=2, label='Successful Scenarios'),
+                Line2D([0], [0], color='#d62728', alpha=0.5, linewidth=2, label='Failed Scenarios'),
+                Line2D([0], [0], color='#2ca02c', linewidth=3, label='Median Path')
+            ]
+            ax.legend(handles=legend_elements, loc='upper left')
+
+            ax.set_xlabel('Years')
+            ax.set_ylabel('Portfolio Value ($)')
+            ax.set_title(f"{title}\n(Showing {len(selected_scenarios)} paths, Success Rate: {simulation_result.success_rate:.1%})")
+            ax.grid(True, alpha=0.3)
+
+            # Format y-axis as currency
+            ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x/1000:.0f}K'))
+
+            plt.tight_layout()
+            plt.savefig(output_path, dpi=300, bbox_inches='tight')
+            plt.close()
+
+            self.logger.log(LogLevel.INFO, f"Simulation paths chart saved to {output_path}")
+            return output_path
+
+        except Exception as e:
+            raise AnalysisError(f"Failed to create simulation paths chart: {e}")
+
     def create_success_rate_chart(
         self,
         retirement_analysis: RetirementAnalysis,
@@ -120,13 +194,13 @@ class ChartCreator:
             # Add value labels on bars
             for bar, rate in zip(bars, success_rates):
                 height = bar.get_height()
-                ax.text(bar.get_x() + bar.get_width()/2., height + 1,
-                       f'{rate:.1f}%', ha='center', va='bottom')
+                ax.text(bar.get_x() + bar.get_width()/2., height + 0.01,
+                       f'{rate:.1%}', ha='center', va='bottom')
 
             ax.set_xlabel('Goals')
             ax.set_ylabel('Success Rate (%)')
             ax.set_title(title)
-            ax.set_ylim(0, 100)
+            ax.set_ylim(0, 1)
             ax.grid(True, alpha=0.3, axis='y')
 
             plt.xticks(rotation=45, ha='right')
@@ -160,13 +234,13 @@ class ChartCreator:
                 bars1 = ax1.bar(strategies, success_rates, color='#2ca02c', alpha=0.7)
                 for bar, rate in zip(bars1, success_rates):
                     height = bar.get_height()
-                    ax1.text(bar.get_x() + bar.get_width()/2., height + 1,
-                            f'{rate:.1f}%', ha='center', va='bottom')
+                    ax1.text(bar.get_x() + bar.get_width()/2., height + 0.01,
+                            f'{rate:.1%}', ha='center', va='bottom')
 
                 ax1.set_xlabel('Withdrawal Strategy')
                 ax1.set_ylabel('Success Rate (%)')
                 ax1.set_title('Success Rates by Strategy')
-                ax1.set_ylim(0, 100)
+                ax1.set_ylim(0, 1)
                 ax1.grid(True, alpha=0.3, axis='y')
                 plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha='right')
 
@@ -198,12 +272,12 @@ class ChartCreator:
                 bars1 = ax1.bar(labels, success_rates, color='#2ca02c', alpha=0.7)
                 for bar, rate in zip(bars1, success_rates):
                     height = bar.get_height()
-                    ax1.text(bar.get_x() + bar.get_width()/2., height + 1,
-                            f'{rate:.1f}%', ha='center', va='bottom')
+                    ax1.text(bar.get_x() + bar.get_width()/2., height + 0.01,
+                            f'{rate:.1%}', ha='center', va='bottom')
                 ax1.set_xlabel('Strategy')
                 ax1.set_ylabel('Success Rate (%)')
                 ax1.set_title('Optimal Withdrawal Success Rate')
-                ax1.set_ylim(0, 100)
+                ax1.set_ylim(0, 1)
                 ax1.grid(True, alpha=0.3, axis='y')
 
                 # Average withdrawal bar
@@ -404,6 +478,12 @@ class ReportGenerator:
                     simulation_result, portfolio_chart_path
                 )
 
+                # Simulation paths chart
+                simulation_paths_chart_path = charts_dir / f"simulation_paths_{timestamp}.{self.config.chart_format}"
+                report_files['simulation_paths_chart'] = self.chart_creator.create_simulation_paths_chart(
+                    simulation_result, simulation_paths_chart_path
+                )
+
                 # Success rate chart
                 success_chart_path = charts_dir / f"success_rates_{timestamp}.{self.config.chart_format}"
                 report_files['success_chart'] = self.chart_creator.create_success_rate_chart(
@@ -470,7 +550,7 @@ class ReportGenerator:
                 f.write("-" * 40 + "\n")
                 f.write(f"Number of Scenarios: {len(simulation_result.scenarios):,}\n")
                 f.write(f"Time Horizon: {simulation_result.time_horizon} years\n")
-                f.write(f"Overall Success Rate: {simulation_result.success_rate:.1f}%\n")
+                f.write(f"Overall Success Rate: {simulation_result.success_rate:.1%}\n")
                 f.write(f"Average Final Portfolio Value: ${simulation_result.average_portfolio_value:,.0f}\n")
                 f.write(f"Median Final Portfolio Value: ${simulation_result.median_portfolio_value:,.0f}\n")
                 f.write(f"Best Case Final Value: ${simulation_result.best_case_portfolio_value:,.0f}\n")
@@ -484,7 +564,7 @@ class ReportGenerator:
                 f.write("-" * 40 + "\n")
                 for goal_status in retirement_analysis.goal_statuses:
                     f.write(f"Goal: {goal_status.goal_name}\n")
-                    f.write(f"  Success Rate: {goal_status.success_rate:.1f}%\n")
+                    f.write(f"  Success Rate: {goal_status.success_rate:.1%}\n")
                     f.write(f"  Achieved: {'Yes' if goal_status.achieved else 'No'}\n")
                     f.write(f"  Average Shortfall: ${goal_status.average_shortfall:,.0f}\n")
                     f.write(f"  Worst Case Shortfall: ${goal_status.worst_case_shortfall:,.0f}\n")
@@ -498,7 +578,7 @@ class ReportGenerator:
                     f.write("-" * 40 + "\n")
                     f.write(f"Optimal Withdrawal Rate: {withdrawal_result.optimal_withdrawal_rate:.1%}\n")
                     f.write(f"Optimal Annual Withdrawal: ${withdrawal_result.optimal_annual_withdrawal:,.0f}\n")
-                    f.write(f"Success Rate: {withdrawal_result.success_rate:.1f}%\n")
+                    f.write(f"Success Rate: {withdrawal_result.success_rate:.1%}\n")
                     f.write(f"Average Portfolio Value: ${withdrawal_result.average_portfolio_value:,.0f}\n")
                     f.write(f"Worst Case Portfolio Value: ${withdrawal_result.worst_case_portfolio_value:,.0f}\n\n")
 

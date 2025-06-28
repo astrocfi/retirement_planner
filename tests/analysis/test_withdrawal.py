@@ -99,6 +99,7 @@ def simulation_result():
         median_portfolio_value=100000,
         worst_case_portfolio_value=0,
         best_case_portfolio_value=110000,
+        time_horizon=2,
         average_years_to_failure=1.0
     )
 
@@ -393,7 +394,8 @@ class TestWithdrawalOptimizer:
             average_portfolio_value=0.0,
             median_portfolio_value=0.0,
             worst_case_portfolio_value=0.0,
-            best_case_portfolio_value=0.0
+            best_case_portfolio_value=0.0,
+            time_horizon=10
         )
 
         with pytest.raises(AnalysisError):

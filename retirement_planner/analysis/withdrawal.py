@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Any, Tuple, Callable
 from dataclasses import dataclass, field
 import numpy as np
 from abc import ABC, abstractmethod
+import copy
 
 from retirement_planner.models.portfolio import Portfolio
 from retirement_planner.simulation.engine import SimulationResult, SimulationScenario
@@ -173,38 +174,74 @@ class WithdrawalOptimizer:
                                 portfolio: Portfolio,
                                 simulation_result: SimulationResult,
                                 strategy_type: str = "percentage",
-                                min_rate: float = 0.02,
-                                max_rate: float = 0.08,
-                                step_size: float = 0.001) -> WithdrawalOptimizationResult:
-        """Find optimal withdrawal rate for given portfolio and simulation results."""
+                                min_rate: float = 0.001,  # 0.1%
+                                max_rate: float = 0.10,   # 10%
+                                target_success_rate: float = 0.8) -> WithdrawalOptimizationResult:
+        """Find optimal withdrawal rate using binary search for efficiency."""
         try:
             self.logger.log(LogLevel.INFO, f"Optimizing withdrawal rate for {strategy_type} strategy")
 
+            # Import here to avoid circular imports
+            from retirement_planner.simulation.engine import MonteCarloEngine, RandomScenarioGenerator, MarketSimulator
+            from retirement_planner.simulation.market import SimpleMarketModel
+
+            # Create simulation engine (reuse the same setup as main simulation)
+            time_horizon = simulation_result.time_horizon
+            num_scenarios = len(simulation_result.scenarios)
+
+            # Use SimpleMarketModel since we don't need correlation for single asset
+            market_model = SimpleMarketModel()
+            market_simulator = MarketSimulator(market_model)
+
+            engine = MonteCarloEngine(
+                scenario_generator=RandomScenarioGenerator(time_horizon=time_horizon),
+                market_simulator=market_simulator,
+                num_scenarios=num_scenarios
+            )
+
+            # Binary search for the highest rate that achieves target success rate
             best_rate = min_rate
             best_success_rate = 0.0
             best_metrics = {}
+            best_simulation_result = None
 
-            rates = np.arange(min_rate, max_rate + step_size, step_size)
+            # Binary search parameters
+            tolerance = 0.001  # 0.1% precision
+            left = min_rate
+            right = max_rate
 
-            for rate in rates:
-                # Create strategy
-                strategy = self.strategy_factory(strategy_type, rate)
+            self.logger.log(LogLevel.INFO, f"Binary search: target success rate {target_success_rate:.1%}")
 
-                # Calculate withdrawals
-                num_years = len(simulation_result.scenarios[0].years) - 1
-                withdrawal_plan = strategy.calculate_withdrawals(portfolio, num_years)
+            while right - left > tolerance:
+                mid = (left + right) / 2
 
-                # Evaluate success rate
-                success_rate = self._evaluate_withdrawal_strategy(
-                    withdrawal_plan, simulation_result
+                # Test the middle rate
+                strategy = self.strategy_factory(strategy_type, mid)
+                withdrawal_plan = strategy.calculate_withdrawals(portfolio, time_horizon)
+
+                new_simulation_result = self._run_withdrawal_simulation(
+                    engine, portfolio, withdrawal_plan, time_horizon
                 )
 
-                if success_rate > best_success_rate:
+                success_rate = new_simulation_result.success_rate
+                self.logger.log(LogLevel.INFO, f"Testing rate {mid:.1%}: {success_rate:.1%} success")
+
+                if success_rate >= target_success_rate:
+                    # This rate works, try a higher rate
+                    best_rate = mid
                     best_success_rate = success_rate
-                    best_rate = rate
+                    best_simulation_result = new_simulation_result
                     best_metrics = self._calculate_optimization_metrics(
-                        withdrawal_plan, simulation_result
+                        withdrawal_plan, new_simulation_result
                     )
+                    left = mid
+                else:
+                    # This rate fails, try a lower rate
+                    right = mid
+
+            # If we didn't find any rate that meets the target, just return the best we found
+            if best_success_rate < target_success_rate:
+                self.logger.log(LogLevel.INFO, f"No rate achieved {target_success_rate:.1%} success. Best available: {best_rate:.1%} with {best_success_rate:.1%} success")
 
             # Generate recommendations
             recommendations = self._generate_optimization_recommendations(
@@ -229,6 +266,66 @@ class WithdrawalOptimizer:
         except Exception as e:
             raise AnalysisError(f"Withdrawal optimization failed: {e}") from e
 
+    def _run_withdrawal_simulation(self, engine, portfolio, withdrawal_plan, time_horizon):
+        """Run a simulation with the given withdrawal plan."""
+        # Create custom withdrawals and zero contributions for this test
+        withdrawals = withdrawal_plan.annual_withdrawals
+        contributions = [0.0] * time_horizon
+
+        # Run simulation with these specific withdrawals
+        simulation_scenarios = []
+
+        for i in range(engine.num_scenarios):
+            try:
+                # Generate unique returns for this scenario
+                returns = engine.market_simulator.simulate_returns(portfolio.assets, time_horizon)
+
+                # Deep copy the portfolio so each scenario starts fresh
+                scenario_portfolio = copy.deepcopy(portfolio)
+
+                result = engine.market_simulator.simulate_portfolio_evolution(
+                    portfolio=scenario_portfolio,
+                    returns=returns,
+                    withdrawals=withdrawals,
+                    contributions=contributions
+                )
+
+                # Set the scenario ID
+                result = result.__class__(
+                    scenario_id=i,
+                    years=result.years,
+                    portfolio_values=result.portfolio_values,
+                    returns=result.returns,
+                    withdrawals=result.withdrawals,
+                    contributions=result.contributions,
+                    allocation_percentages=result.allocation_percentages,
+                    success=result.success,
+                    failure_year=result.failure_year,
+                    metadata=result.metadata
+                )
+                simulation_scenarios.append(result)
+            except Exception as e:
+                self.logger.log(LogLevel.ERROR, f"Scenario {i} failed: {e}")
+                # Create a failed scenario
+                from retirement_planner.simulation.engine import SimulationScenario
+                failed_scenario = SimulationScenario(
+                    scenario_id=i,
+                    years=list(range(time_horizon + 1)),
+                    portfolio_values=[portfolio.total_value] + [0.0] * time_horizon,
+                    returns=[0.0] * time_horizon,
+                    withdrawals=withdrawals,
+                    contributions=contributions,
+                    allocation_percentages=[portfolio.get_allocation_percentages()] + [{}] * time_horizon,
+                    success=False,
+                    failure_year=0
+                )
+                simulation_scenarios.append(failed_scenario)
+
+        # Calculate results
+        result = engine._calculate_results(simulation_scenarios, time_horizon)
+
+        return result
+
     def _default_strategy_factory(self, strategy_type: str, rate: float) -> WithdrawalStrategy:
         """Default factory for creating withdrawal strategies."""
         if strategy_type == "percentage":
@@ -241,27 +338,6 @@ class WithdrawalOptimizer:
             return DynamicWithdrawalStrategy(rate)
         else:
             raise AnalysisError(f"Unknown strategy type: {strategy_type}")
-
-    def _evaluate_withdrawal_strategy(self,
-                                    withdrawal_plan: WithdrawalPlan,
-                                    simulation_result: SimulationResult) -> float:
-        """Evaluate withdrawal strategy success rate."""
-        successful_scenarios = 0
-
-        for scenario in simulation_result.scenarios:
-            if scenario.success:
-                # Check if withdrawals are sustainable
-                if len(withdrawal_plan.annual_withdrawals) <= len(scenario.withdrawals):
-                    sustainable = True
-                    for i, planned_withdrawal in enumerate(withdrawal_plan.annual_withdrawals):
-                        if i < len(scenario.withdrawals) and planned_withdrawal > scenario.withdrawals[i]:
-                            sustainable = False
-                            break
-
-                    if sustainable:
-                        successful_scenarios += 1
-
-        return successful_scenarios / len(simulation_result.scenarios)
 
     def _calculate_optimization_metrics(self,
                                       withdrawal_plan: WithdrawalPlan,

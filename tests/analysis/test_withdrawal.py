@@ -275,34 +275,6 @@ class TestWithdrawalOptimizer:
         with pytest.raises(AnalysisError):
             optimizer._default_strategy_factory("unknown", 0.04)
 
-    def test_evaluate_withdrawal_strategy(self, simulation_result):
-        optimizer = WithdrawalOptimizer()
-
-        # Create withdrawal plan that matches simulation withdrawals
-        plan = WithdrawalPlan(
-            annual_withdrawals=[5000, 5000],
-            total_withdrawn=10000,
-            average_withdrawal=5000,
-            withdrawal_rate=0.05
-        )
-
-        success_rate = optimizer._evaluate_withdrawal_strategy(plan, simulation_result)
-        assert 0.0 <= success_rate <= 1.0
-
-    def test_evaluate_withdrawal_strategy_unsustainable(self, simulation_result):
-        optimizer = WithdrawalOptimizer()
-
-        # Create withdrawal plan that exceeds simulation withdrawals
-        plan = WithdrawalPlan(
-            annual_withdrawals=[10000, 10000],  # Higher than simulation withdrawals
-            total_withdrawn=20000,
-            average_withdrawal=10000,
-            withdrawal_rate=0.10
-        )
-
-        success_rate = optimizer._evaluate_withdrawal_strategy(plan, simulation_result)
-        assert success_rate < 1.0  # Should be lower than 100%
-
     def test_calculate_optimization_metrics(self, simulation_result):
         optimizer = WithdrawalOptimizer()
 
@@ -369,8 +341,7 @@ class TestWithdrawalOptimizer:
             simulation_result=simulation_result,
             strategy_type="percentage",
             min_rate=0.02,
-            max_rate=0.06,
-            step_size=0.01
+            max_rate=0.06
         )
 
         assert isinstance(result, WithdrawalOptimizationResult)

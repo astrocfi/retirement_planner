@@ -182,44 +182,6 @@ class ChartCreator:
         except Exception as e:
             raise AnalysisError(f"Failed to create simulation paths chart: {e}")
 
-    def create_success_rate_chart(
-        self,
-        retirement_analysis: RetirementAnalysis,
-        output_path: Path,
-        title: str = "Goal Success Rates"
-    ) -> Path:
-        """Create chart showing success rates for different goals."""
-        try:
-            goals = [gs.goal_name for gs in retirement_analysis.goal_statuses]
-            success_rates = [gs.success_rate for gs in retirement_analysis.goal_statuses]
-
-            fig, ax = plt.subplots(figsize=(10, 6))
-
-            bars = ax.bar(goals, success_rates, color='#1f77b4', alpha=0.7)
-
-            # Add value labels on bars
-            for bar, rate in zip(bars, success_rates):
-                height = bar.get_height()
-                ax.text(bar.get_x() + bar.get_width()/2., height + 0.01,
-                       f'{rate:.1%}', ha='center', va='bottom')
-
-            ax.set_xlabel('Goals')
-            ax.set_ylabel('Success Rate (%)')
-            ax.set_title(title)
-            ax.set_ylim(0, 1)
-            ax.grid(True, alpha=0.3, axis='y')
-
-            plt.xticks(rotation=45, ha='right')
-            plt.subplots_adjust(left=0.1, right=0.95, top=0.9, bottom=0.15, wspace=0.3)
-            plt.savefig(output_path, dpi=300, bbox_inches='tight', pad_inches=0.1)
-            plt.close()
-
-            self.logger.log(LogLevel.INFO, f"Success rate chart saved to {output_path}")
-            return output_path
-
-        except Exception as e:
-            raise AnalysisError(f"Failed to create success rate chart: {e}")
-
     def create_withdrawal_strategy_chart(
         self,
         withdrawal_result: WithdrawalOptimizationResult,
@@ -508,19 +470,6 @@ class ReportGenerator:
                 report_files['simulation_paths_chart'] = self.chart_creator.create_simulation_paths_chart(
                     simulation_result, simulation_paths_chart_path
                 )
-
-                # Success rate chart
-                success_chart_path = charts_dir / f"success_rates_{timestamp}.{self.config.chart_format}"
-                report_files['success_chart'] = self.chart_creator.create_success_rate_chart(
-                    retirement_analysis, success_chart_path
-                )
-
-                # Withdrawal strategy chart (if available)
-                if withdrawal_result:
-                    withdrawal_chart_path = charts_dir / f"withdrawal_strategies_{timestamp}.{self.config.chart_format}"
-                    report_files['withdrawal_chart'] = self.chart_creator.create_withdrawal_strategy_chart(
-                        withdrawal_result, withdrawal_chart_path
-                    )
 
             # Export data
             if self.config.include_raw_data:

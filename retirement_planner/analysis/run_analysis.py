@@ -281,7 +281,8 @@ def analyze(args):
 
         economy_data = config_loader.get_section('economy')
         inflation_rate = economy_data.get("inflation", {}).get("expected_rate", 0.025)
-        logger.log(LogLevel.INFO, f"Inflation rate: {inflation_rate:.1%}")
+        inflation_volatility = economy_data.get("inflation", {}).get("volatility", 0.01)
+        logger.log(LogLevel.INFO, f"Inflation rate: {inflation_rate:.1%} (volatility: {inflation_volatility:.1%})")
 
         allocation_data = {}
         for asset in assets:
@@ -325,7 +326,10 @@ def analyze(args):
         logger.log(LogLevel.INFO, f"Created Monte Carlo engine with {simulation_data.get('num_scenarios', 10000)} scenarios")
 
         logger.log(LogLevel.INFO, "Running Monte Carlo simulation...")
-        simulation_result = engine.run_simulation(portfolio, person.get_working_years() + person.get_retirement_years(), event_manager, person)
+        simulation_result = engine.run_simulation(
+            portfolio, person.get_working_years() + person.get_retirement_years(), event_manager, person,
+            inflation_mean=inflation_rate, inflation_volatility=inflation_volatility
+        )
         logger.log(LogLevel.SUCCESS, f"Simulation completed with {len(simulation_result.scenarios)} successful scenarios")
 
         logger.log(LogLevel.INFO, "Running retirement analysis...")
@@ -362,7 +366,6 @@ def analyze(args):
         )
 
         logger.log(LogLevel.SUCCESS, f"Reports generated successfully in {output_dir}")
-        logger.log(LogLevel.INFO, f"Report files: {list(report_result.values())}")
 
         print("\n" + "=" * 60)
         print("ANALYSIS COMPLETE")

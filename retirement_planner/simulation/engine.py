@@ -92,9 +92,10 @@ class MarketSimulator:
         portfolio: Portfolio,
         returns: Dict[str, List[float]],
         withdrawals: List[float],
-        contributions: List[float]
+        contributions: List[float],
+        inflation_path: Optional[np.ndarray] = None
     ) -> SimulationScenario:
-        """Simulate portfolio evolution over time."""
+        """Simulate portfolio evolution over time, discounting by inflation."""
         if len(returns) == 0:
             raise SimulationError("No returns provided for simulation")
 
@@ -114,6 +115,8 @@ class MarketSimulator:
         portfolio_values = [current_portfolio.total_value]
         allocation_percentages = [current_portfolio.get_allocation_percentages()]
         scenario_returns = []
+        cumulative_inflation = 1.0
+        inflation_factors = [1.0]  # Cumulative inflation factor for each year
 
         success = True
         failure_year = None
@@ -159,8 +162,14 @@ class MarketSimulator:
             # Rebalance portfolio
             current_portfolio = current_portfolio.rebalance()
 
-            # Track portfolio value and allocation
-            portfolio_values.append(current_portfolio.total_value)
+            # Apply inflation discount for this year
+            if inflation_path is not None:
+                cumulative_inflation *= (1 + inflation_path[year])
+            inflation_factors.append(cumulative_inflation)
+
+            # Track portfolio value and allocation (discounted to today's dollars)
+            discounted_value = current_portfolio.total_value / cumulative_inflation if cumulative_inflation > 0 else 0.0
+            portfolio_values.append(discounted_value)
             allocation_percentages.append(current_portfolio.get_allocation_percentages())
 
             # Check for failure (portfolio depleted or below threshold)
@@ -170,10 +179,8 @@ class MarketSimulator:
                 break
 
         # Create scenario result
-        # Ensure portfolio_values has the correct length for all scenarios
         expected_length = num_years + 1
         if len(portfolio_values) < expected_length:
-            # Pad with zeros for failed scenarios
             portfolio_values.extend([0.0] * (expected_length - len(portfolio_values)))
 
         return SimulationScenario(
@@ -185,7 +192,10 @@ class MarketSimulator:
             contributions=contributions,
             allocation_percentages=allocation_percentages,
             success=success,
-            failure_year=failure_year
+            failure_year=failure_year,
+            metadata={
+                "inflation_path": inflation_path.tolist() if inflation_path is not None else None
+            }
         )
 
     def _calculate_portfolio_return(self, portfolio: Portfolio, year_returns: Dict[str, float]) -> float:
@@ -277,9 +287,11 @@ class MonteCarloEngine:
         portfolio: Portfolio,
         time_horizon: int,
         event_manager=None,
-        person=None
+        person=None,
+        inflation_mean: float = 0.025,
+        inflation_volatility: float = 0.01
     ) -> SimulationResult:
-        """Run Monte Carlo simulation."""
+        """Run Monte Carlo simulation with stochastic inflation."""
         self.logger.log(LogLevel.INFO, f"Starting Monte Carlo simulation with {self.num_scenarios} scenarios")
 
         # Generate scenarios
@@ -309,20 +321,25 @@ class MonteCarloEngine:
             withdrawals = [0.0] * time_horizon
             contributions = [0.0] * time_horizon
 
-        # Run simulations - each scenario gets its own random returns
+        # Run simulations - each scenario gets its own random returns and inflation path
         simulation_scenarios = []
         for i, scenario in enumerate(scenarios):
             try:
                 # Generate unique returns for this scenario
                 returns = self.market_simulator.simulate_returns(portfolio.assets, time_horizon)
 
+                # Generate stochastic inflation path for this scenario
+                inflation_path = np.random.normal(inflation_mean, inflation_volatility, time_horizon)
+                inflation_path = np.maximum(inflation_path, -0.99)  # Clamp to avoid negative inflation worse than -99%
+
                 result = self.market_simulator.simulate_portfolio_evolution(
                     portfolio=portfolio,
                     returns=returns,
                     withdrawals=withdrawals,
-                    contributions=contributions
+                    contributions=contributions,
+                    inflation_path=inflation_path
                 )
-                # Set the scenario ID
+                # Set the scenario ID and store inflation path in metadata
                 result = result.__class__(
                     scenario_id=i,
                     years=result.years,
@@ -333,7 +350,7 @@ class MonteCarloEngine:
                     allocation_percentages=result.allocation_percentages,
                     success=result.success,
                     failure_year=result.failure_year,
-                    metadata=result.metadata
+                    metadata={**result.metadata, "inflation_path": inflation_path.tolist()}
                 )
                 simulation_scenarios.append(result)
             except Exception as e:
@@ -348,7 +365,10 @@ class MonteCarloEngine:
                     contributions=contributions,
                     allocation_percentages=[portfolio.get_allocation_percentages()] + [{}] * time_horizon,
                     success=False,
-                    failure_year=0
+                    failure_year=0,
+                    metadata={
+                        "inflation_path": [inflation_mean] * time_horizon
+                    }
                 )
                 simulation_scenarios.append(failed_scenario)
 

@@ -29,22 +29,22 @@ asset_performance:
   - type: "simple_portfolio"
     asset_type: "equity"
     expected_return: 0.07
-    volatility: .1
+    volatility: 0
     correlation: {}
 
 # Events Section
 events:
   income: []
-  expenses:
-    - name: "retirement_expenses"
-      event_type: "expense"
-      period:
-        start_age: 65
-        end_age: 95
-        description: "Retirement living expenses"
-      amount: 80000.0
-      probability: 1.0
-      description: "Annual retirement expenses (today's dollars)"
+  # expenses:
+  #   - name: "retirement_expenses"
+  #     event_type: "expense"
+  #     period:
+  #       start_age: 65
+  #       end_age: 95
+  #       description: "Retirement living expenses"
+  #     amount: 80000.0
+  #     probability: 1.0
+  #     description: "Annual retirement expenses (today's dollars)"
   assets: []
   liabilities: []
   benefits: []
@@ -58,4 +58,4 @@ simulation:
 economy:
   inflation:
     expected_rate: 0.025
-    volatility: 0.01
+    volatility: 0.07

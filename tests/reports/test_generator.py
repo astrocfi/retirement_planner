@@ -140,31 +140,6 @@ class TestChartCreator:
 
     @patch('matplotlib.pyplot.savefig')
     @patch('matplotlib.pyplot.close')
-    def test_create_success_rate_chart(self, mock_close, mock_savefig):
-        """Test success rate chart creation."""
-        # Create mock retirement analysis
-        mock_goal_status = Mock()
-        mock_goal_status.goal_name = "Retirement Goal"
-        mock_goal_status.success_rate = 0.855
-
-        mock_retirement_analysis = Mock()
-        mock_retirement_analysis.goal_statuses = [mock_goal_status]
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            output_path = Path(temp_dir) / "success_chart.png"
-
-            result_path = self.chart_creator.create_success_rate_chart(
-                retirement_analysis=mock_retirement_analysis,
-                output_path=output_path
-            )
-
-            assert result_path == output_path
-            mock_savefig.assert_called_once()
-            mock_close.assert_called_once()
-            self.logger.log.assert_called()
-
-    @patch('matplotlib.pyplot.savefig')
-    @patch('matplotlib.pyplot.close')
     def test_create_withdrawal_strategy_chart(self, mock_close, mock_savefig):
         """Test withdrawal strategy chart creation."""
         # Create mock withdrawal result
@@ -246,6 +221,8 @@ class TestDataExporter:
         mock_scenario = Mock()
         mock_scenario.portfolio_values = [100000, 105000, 110000]
         mock_scenario.success = True
+        mock_scenario.withdrawals = [5000, 5000]  # Add withdrawals
+        mock_scenario.contributions = [0, 0]      # Add contributions
 
         mock_simulation_result = Mock()
         mock_simulation_result.scenarios = [mock_scenario] * 3  # 3 scenarios
@@ -264,10 +241,13 @@ class TestDataExporter:
 
             # Verify CSV content
             df = pd.read_csv(output_path)
-            assert len(df) == 9  # 3 scenarios * 3 years
+            assert len(df) == 6  # 3 scenarios * 2 years (portfolio_values has 3 values = 2 years)
             assert "scenario" in df.columns
             assert "year" in df.columns
-            assert "portfolio_value" in df.columns
+            assert "starting_portfolio_value" in df.columns
+            assert "income" in df.columns
+            assert "expenses" in df.columns
+            assert "final_portfolio_value" in df.columns
             assert "success" in df.columns
 
     def test_export_simulation_data_json(self):
@@ -374,12 +354,10 @@ class TestReportGenerator:
         self.report_generator = ReportGenerator(config=self.config, logger=self.logger)
 
     @patch('retirement_planner.reports.generator.ChartCreator.create_portfolio_evolution_chart')
-    @patch('retirement_planner.reports.generator.ChartCreator.create_success_rate_chart')
     @patch('retirement_planner.reports.generator.DataExporter.export_simulation_data')
     @patch('retirement_planner.reports.generator.DataExporter.export_analysis_summary')
     def test_generate_comprehensive_report(
-        self, mock_export_summary, mock_export_data,
-        mock_success_chart, mock_portfolio_chart
+        self, mock_export_summary, mock_export_data, mock_portfolio_chart
     ):
         """Test comprehensive report generation."""
         # Create mock objects with proper attributes for formatting
@@ -412,6 +390,8 @@ class TestReportGenerator:
         mock_scenario = Mock()
         mock_scenario.portfolio_values = [100000 + 1000 * i for i in range(21)]  # 21 years for time_horizon=20
         mock_scenario.success = True
+        mock_scenario.withdrawals = [0] * 20  # Add withdrawals
+        mock_scenario.contributions = [0] * 20  # Add contributions
 
         mock_simulation_result = Mock()
         mock_simulation_result.scenarios = [mock_scenario] * 10  # 10 scenarios
@@ -440,7 +420,6 @@ class TestReportGenerator:
 
         # Setup mock return values
         mock_portfolio_chart.return_value = Path("portfolio_chart.png")
-        mock_success_chart.return_value = Path("success_chart.png")
         mock_export_data.return_value = Path("simulation_data.csv")
         mock_export_summary.return_value = Path("analysis_summary.json")
 
@@ -460,7 +439,6 @@ class TestReportGenerator:
             # Verify report files were created
             assert "text_report" in report_files
             assert "portfolio_chart" in report_files
-            assert "success_chart" in report_files
             assert "simulation_data" in report_files
             assert "analysis_summary" in report_files
 
@@ -471,13 +449,13 @@ class TestReportGenerator:
 
             # Verify mock calls
             mock_portfolio_chart.assert_called_once()
-            mock_success_chart.assert_called_once()
             mock_export_data.assert_called_once()
             mock_export_summary.assert_called_once()
 
-    def test_generate_comprehensive_report_no_charts(self):
+    @patch('retirement_planner.reports.generator.DataExporter.export_analysis_summary')
+    def test_generate_comprehensive_report_no_charts(self, mock_export_summary):
         """Test report generation without charts."""
-        config = ReportConfig(include_charts=False)
+        config = ReportConfig(include_charts=False, include_raw_data=True)
         report_generator = ReportGenerator(config=config, logger=self.logger)
 
         # Create mock objects with proper attributes
@@ -502,6 +480,8 @@ class TestReportGenerator:
         mock_scenario = Mock()
         mock_scenario.portfolio_values = [100000 + 1000 * i for i in range(21)]  # 21 years for time_horizon=20
         mock_scenario.success = True
+        mock_scenario.withdrawals = [0] * 20  # Add withdrawals
+        mock_scenario.contributions = [0] * 20  # Add contributions
 
         mock_simulation_result = Mock()
         mock_simulation_result.scenarios = [mock_scenario] * 10  # 10 scenarios
@@ -512,6 +492,8 @@ class TestReportGenerator:
         mock_simulation_result.best_case_portfolio_value = 1500000
         mock_simulation_result.worst_case_portfolio_value = 800000
         mock_simulation_result.average_years_to_failure = 5.5
+
+        mock_export_summary.return_value = Path("analysis_summary.json")
 
         with tempfile.TemporaryDirectory() as temp_dir:
             output_dir = Path(temp_dir) / "reports"
@@ -525,7 +507,8 @@ class TestReportGenerator:
             # Should only have text report
             assert "text_report" in report_files
             assert "portfolio_chart" not in report_files
-            assert "success_chart" not in report_files
+            assert "simulation_data" in report_files
+            assert "analysis_summary" in report_files
 
     def test_generate_comprehensive_report_no_raw_data(self):
         """Test report generation without raw data export."""
@@ -554,6 +537,8 @@ class TestReportGenerator:
         mock_scenario = Mock()
         mock_scenario.portfolio_values = [100000 + 1000 * i for i in range(21)]  # 21 years for time_horizon=20
         mock_scenario.success = True
+        mock_scenario.withdrawals = [0] * 20  # Add withdrawals
+        mock_scenario.contributions = [0] * 20  # Add contributions
 
         mock_simulation_result = Mock()
         mock_simulation_result.scenarios = [mock_scenario] * 10  # 10 scenarios
@@ -611,6 +596,8 @@ class TestReportGenerator:
         mock_scenario = Mock()
         mock_scenario.portfolio_values = [100000 + 1000 * i for i in range(21)]  # 21 years for time_horizon=20
         mock_scenario.success = True
+        mock_scenario.withdrawals = [0] * 20  # Add withdrawals
+        mock_scenario.contributions = [0] * 20  # Add contributions
 
         mock_simulation_result = Mock()
         mock_simulation_result.scenarios = [mock_scenario] * 10  # 10 scenarios

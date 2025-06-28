@@ -173,6 +173,8 @@ class WithdrawalOptimizer:
     def optimize_withdrawal_rate(self,
                                 portfolio: Portfolio,
                                 simulation_result: SimulationResult,
+                                event_manager=None,
+                                person=None,
                                 strategy_type: str = "percentage",
                                 min_rate: float = 0.001,  # 0.1%
                                 max_rate: float = 0.10,   # 10%
@@ -220,7 +222,7 @@ class WithdrawalOptimizer:
                 withdrawal_plan = strategy.calculate_withdrawals(portfolio, time_horizon)
 
                 new_simulation_result = self._run_withdrawal_simulation(
-                    engine, portfolio, withdrawal_plan, time_horizon
+                    engine, portfolio, withdrawal_plan, time_horizon, event_manager, person
                 )
 
                 success_rate = new_simulation_result.success_rate
@@ -266,11 +268,31 @@ class WithdrawalOptimizer:
         except Exception as e:
             raise AnalysisError(f"Withdrawal optimization failed: {e}") from e
 
-    def _run_withdrawal_simulation(self, engine, portfolio, withdrawal_plan, time_horizon):
-        """Run a simulation with the given withdrawal plan."""
-        # Create custom withdrawals and zero contributions for this test
-        withdrawals = withdrawal_plan.annual_withdrawals
-        contributions = [0.0] * time_horizon
+    def _run_withdrawal_simulation(self, engine, portfolio, withdrawal_plan, time_horizon, event_manager=None, person=None):
+        """Run a simulation with the given withdrawal plan, replacing expense events with the withdrawal amount."""
+        # Calculate base cash flows from events (excluding expenses)
+        if event_manager and person:
+            withdrawals = []
+            contributions = []
+            retirement_age = person.retirement_age
+            for year in range(time_horizon):
+                year_income = 0.0
+                year_expenses = 0.0
+
+                # Calculate income and expenses for this year based on events
+                for event in event_manager.events:
+                    if event.period.start_age <= (year + retirement_age) <= event.period.end_age:
+                        if event.event_type.value == "income":
+                            year_income += event.amount
+                        # Skip expense events - we'll replace them with the withdrawal plan
+
+                contributions.append(year_income)
+                # Replace expense events with the withdrawal plan amount
+                withdrawals.append(withdrawal_plan.annual_withdrawals[year])
+        else:
+            # Fallback to just the withdrawal plan with zero contributions
+            withdrawals = withdrawal_plan.annual_withdrawals
+            contributions = [0.0] * time_horizon
 
         # Run simulation with these specific withdrawals
         simulation_scenarios = []

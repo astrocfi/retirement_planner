@@ -57,7 +57,7 @@ class ChartCreator:
         self,
         simulation_result: SimulationResult,
         output_path: Path,
-        title: str = "Portfolio Evolution Over Time (Today's Dollars)"
+        title: str = "Portfolio Evolution Over Time"
     ) -> Path:
         """Create portfolio evolution chart showing median and percentiles."""
         try:
@@ -89,7 +89,7 @@ class ChartCreator:
 
             ax.set_xlabel('Years')
             ax.set_ylabel('Portfolio Value (Today\'s Dollars)')
-            ax.set_title(title)
+            ax.set_title(f"{title}\n({len(simulation_result.scenarios):,} simulations, Success Rate: {simulation_result.success_rate:.1%})")
             ax.legend()
             ax.grid(True, alpha=0.3)
 

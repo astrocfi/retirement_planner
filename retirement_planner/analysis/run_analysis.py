@@ -345,7 +345,9 @@ def analyze(args):
         optimizer = WithdrawalOptimizer()
         withdrawal_result = optimizer.optimize_withdrawal_rate(
             portfolio=portfolio,
-            simulation_result=simulation_result
+            simulation_result=simulation_result,
+            event_manager=event_manager,
+            person=person
         )
         logger.log(LogLevel.SUCCESS, f"Withdrawal optimization completed. Optimal rate: {withdrawal_result.optimal_withdrawal_rate:.1%}")
 

@@ -6,7 +6,6 @@ age: 50
 retirement_age: 67
 life_expectancy: 95
 current_savings: 1000000.0
-annual_contribution: 20000.0
 risk_tolerance: "moderate"  # conservative, moderate, aggressive
 tax_filing_status: "single"  # single, married, head_of_household
 state_of_residence: "CA"

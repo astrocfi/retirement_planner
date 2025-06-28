@@ -1,0 +1,175 @@
+# Asset Configuration Example
+# Demonstrates the new asset class structure with metadata-based configuration
+
+assets:
+  # Equity Assets
+  equities:
+    - name: "S&P 500 ETF"
+      asset_type: "equity"
+      current_value: 600000.0
+      expected_return: 0.07
+      volatility: 0.18
+      correlation: {}
+      description: "Large cap domestic equity exposure"
+      metadata:
+        dividend_yield: 0.015
+        beta: 1.0
+        market_cap: "large"
+        geography: "domestic"
+        is_public: true
+        sector: "Broad Market"
+
+    - name: "International Developed Markets ETF"
+      asset_type: "equity"
+      current_value: 150000.0
+      expected_return: 0.06
+      volatility: 0.20
+      correlation: {}
+      description: "International developed markets exposure"
+      metadata:
+        dividend_yield: 0.025
+        beta: 0.9
+        market_cap: "large"
+        geography: "international"
+        is_public: true
+        region: "Developed Markets"
+        foreign_tax_rate: 0.15
+
+    - name: "Small Cap Value ETF"
+      asset_type: "equity"
+      current_value: 100000.0
+      expected_return: 0.09
+      volatility: 0.25
+      correlation: {}
+      description: "Small cap value exposure"
+      metadata:
+        dividend_yield: 0.02
+        beta: 1.2
+        market_cap: "small"
+        geography: "domestic"
+        is_public: true
+        sector: "Value"
+
+  # Bond Assets
+  bonds:
+    - name: "Total Bond Market ETF"
+      asset_type: "bond"
+      current_value: 300000.0
+      expected_return: 0.03
+      volatility: 0.08
+      correlation: {}
+      description: "Core bond exposure"
+      metadata:
+        coupon_rate: 0.025
+        face_value: 1000.0
+        tax_treatment: "taxable"
+        issuer_type: "government"
+        credit_rating: "AAA"
+        duration: 6.5
+
+    - name: "Municipal Bond Fund"
+      asset_type: "bond"
+      current_value: 50000.0
+      expected_return: 0.025
+      volatility: 0.06
+      correlation: {}
+      description: "Tax-exempt municipal bonds"
+      metadata:
+        coupon_rate: 0.025
+        face_value: 1000.0
+        tax_treatment: "tax-exempt"
+        issuer_type: "municipal"
+        credit_rating: "AA"
+        duration: 8.0
+
+  # Cash Assets
+  cash:
+    - name: "High Yield Savings Account"
+      asset_type: "cash"
+      current_value: 50000.0
+      expected_return: 0.035
+      volatility: 0.01
+      correlation: {}
+      description: "Liquid cash reserves"
+      metadata:
+        interest_rate: 0.035
+        fdic_insured: true
+        minimum_balance: 1000.0
+        monthly_fee: 0.0
+        liquidity_score: 1.0
+        account_type: "savings"
+        compounding_frequency: 12
+
+    - name: "Money Market Account"
+      asset_type: "cash"
+      current_value: 25000.0
+      expected_return: 0.04
+      volatility: 0.008
+      correlation: {}
+      description: "Money market for short-term needs"
+      metadata:
+        interest_rate: 0.04
+        fdic_insured: true
+        minimum_balance: 2500.0
+        monthly_fee: 12.0
+        liquidity_score: 0.9
+        account_type: "money_market"
+        check_writing_limit: 3
+
+  # Alternative Assets
+  alternatives:
+    - name: "Real Estate Investment Trust"
+      asset_type: "real_estate"
+      current_value: 75000.0
+      expected_return: 0.07
+      volatility: 0.18
+      correlation: {}
+      description: "REIT exposure for diversification"
+      metadata:
+        property_type: "REIT"
+        rental_yield: 0.04
+        appreciation_rate: 0.03
+        property_tax_rate: 0.012
+        maintenance_rate: 0.02
+        leverage_ratio: 0.0
+
+    - name: "Gold ETF"
+      asset_type: "commodity"
+      current_value: 25000.0
+      expected_return: 0.04
+      volatility: 0.20
+      correlation: {}
+      description: "Gold exposure for inflation hedge"
+      metadata:
+        commodity_type: "Gold"
+        delivery_mechanism: "ETF"
+        storage_cost_rate: 0.0
+        insurance_cost_rate: 0.0
+
+    - name: "Private Business Investment"
+      asset_type: "custom"
+      current_value: 100000.0
+      expected_return: 0.12
+      volatility: 0.30
+      correlation: {}
+      description: "Private business investment"
+      metadata:
+        custom_type: "Business"
+        income_stream: 0.06
+        growth_rate: 0.02
+        liquidity_score: 0.2
+        complexity_score: 0.8
+
+# Portfolio Allocation Summary
+portfolio_summary:
+  total_value: 1500000.0
+  allocation:
+    equities: 0.567  # 850K / 1.5M
+    bonds: 0.233     # 350K / 1.5M
+    cash: 0.050      # 75K / 1.5M
+    alternatives: 0.150  # 200K / 1.5M
+
+  risk_metrics:
+    expected_return: 0.065
+    volatility: 0.145
+    sharpe_ratio: 0.31

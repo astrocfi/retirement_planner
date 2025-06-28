@@ -19,7 +19,6 @@ class AssetType(Enum):
     BOND = "bond"
     REAL_ESTATE = "real_estate"
     COMMODITY = "commodity"
-    PRIVATE_EQUITY = "private_equity"
     CUSTOM = "custom"
     CASH = "cash"
 
@@ -47,6 +46,30 @@ class Asset:
     description: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
+    def __init__(self, name: str, asset_type: AssetType, current_value: float, expected_return: float, volatility: float, correlation: Dict[str, float] = None, description: Optional[str] = None, metadata: Dict[str, Any] = None, **kwargs):
+        """Initialize Asset with support for additional fields in metadata."""
+        # Store additional fields in metadata
+        if metadata is None:
+            metadata = {}
+        if correlation is None:
+            correlation = {}
+
+        # Add any additional kwargs to metadata
+        metadata.update(kwargs)
+
+        # Use object.__setattr__ to set fields since this is a frozen dataclass
+        object.__setattr__(self, 'name', name)
+        object.__setattr__(self, 'asset_type', asset_type)
+        object.__setattr__(self, 'current_value', current_value)
+        object.__setattr__(self, 'expected_return', expected_return)
+        object.__setattr__(self, 'volatility', volatility)
+        object.__setattr__(self, 'correlation', correlation)
+        object.__setattr__(self, 'description', description)
+        object.__setattr__(self, 'metadata', metadata)
+
+        # Run validation
+        self.__post_init__()
+
     def __post_init__(self):
         """Validate asset data."""
         validator = Validator()
@@ -64,6 +87,16 @@ class Asset:
 
         if not result.is_valid:
             raise ValidationError(f"Asset validation failed: {result.errors}")
+
+    def get_metadata_field(self, field_name: str, default: Any = None) -> Any:
+        """Get a field from metadata."""
+        return self.metadata.get(field_name, default)
+
+    def set_metadata_field(self, field_name: str, value: Any) -> None:
+        """Set a field in metadata."""
+        # Since this is a frozen dataclass, we need to create a new instance
+        # This is a limitation of frozen dataclasses
+        raise NotImplementedError("Cannot modify metadata in frozen dataclass")
 
     def get_metrics(self) -> AssetMetrics:
         """Get asset metrics."""

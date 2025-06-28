@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 # Add the parent directory to the path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 # Get the directory where this script is located
 SCRIPT_DIR = Path(__file__).parent.parent
@@ -28,7 +28,6 @@ def test_person_profile():
     print(f"  Name: {person_data['name']}")
     print(f"  Age: {person_data['age']}")
     print(f"  Retirement age: {person_data['retirement_age']}")
-    print(f"  Current savings: ${person_data['current_savings']:,.0f}")
 
     # Create Person object
     person = Person(
@@ -36,8 +35,6 @@ def test_person_profile():
         age=person_data['age'],
         retirement_age=person_data['retirement_age'],
         life_expectancy=person_data['life_expectancy'],
-        current_savings=person_data['current_savings'],
-        annual_contribution=person_data['annual_contribution'],
         risk_tolerance=person_data['risk_tolerance'],
         tax_filing_status=person_data['tax_filing_status'],
         state_of_residence=person_data['state_of_residence'],

@@ -45,13 +45,11 @@ class Goal:
 
 @dataclass(frozen=True)
 class Person:
-    """Person profile for retirement planning (modular: all cash flows via events)."""
+    """Person profile for retirement planning with age, goals, and basic information."""
     name: str
     age: int
     retirement_age: int
     life_expectancy: int
-    current_savings: float
-    annual_contribution: float
     risk_tolerance: str  # conservative, moderate, aggressive
     goals: List[Goal] = field(default_factory=list)
     tax_filing_status: str = "single"  # single, married, head_of_household
@@ -65,8 +63,6 @@ class Person:
         validator.add_field_validator('age').add_rule(RangeRule('age', min_value=0, max_value=120))
         validator.add_field_validator('retirement_age').add_rule(RangeRule('retirement_age', min_value=0, max_value=120))
         validator.add_field_validator('life_expectancy').add_rule(RangeRule('life_expectancy', min_value=0, max_value=120))
-        validator.add_field_validator('current_savings').add_rule(RangeRule('current_savings', min_value=0))
-        validator.add_field_validator('annual_contribution').add_rule(RangeRule('annual_contribution', min_value=0))
         validator.add_field_validator('risk_tolerance').add_rule(ChoiceRule('risk_tolerance', ['conservative', 'moderate', 'aggressive']))
         validator.add_field_validator('tax_filing_status').add_rule(ChoiceRule('tax_filing_status', ['single', 'married', 'head_of_household']))
 
@@ -81,8 +77,6 @@ class Person:
             'age': self.age,
             'retirement_age': self.retirement_age,
             'life_expectancy': self.life_expectancy,
-            'current_savings': self.current_savings,
-            'annual_contribution': self.annual_contribution,
             'risk_tolerance': self.risk_tolerance,
             'tax_filing_status': self.tax_filing_status
         })

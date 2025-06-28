@@ -72,8 +72,6 @@ class TestPerson:
             age=45,
             retirement_age=65,
             life_expectancy=85,
-            current_savings=500000,
-            annual_contribution=25000,
             risk_tolerance="moderate"
         )
         assert person.name == "John Doe"
@@ -94,8 +92,6 @@ class TestPerson:
             age=45,
             retirement_age=65,
             life_expectancy=85,
-            current_savings=500000,
-            annual_contribution=25000,
             risk_tolerance="moderate",
             goals=[goal1, goal2]
         )
@@ -111,8 +107,6 @@ class TestPerson:
                 age=65,
                 retirement_age=60,
                 life_expectancy=85,
-                current_savings=500000,
-                annual_contribution=25000,
                 risk_tolerance="moderate"
             )
 
@@ -124,8 +118,6 @@ class TestPerson:
                 age=45,
                 retirement_age=65,
                 life_expectancy=60,
-                current_savings=500000,
-                annual_contribution=25000,
                 risk_tolerance="moderate"
             )
 
@@ -137,8 +129,6 @@ class TestPerson:
                 age=45,
                 retirement_age=65,
                 life_expectancy=85,
-                current_savings=500000,
-                annual_contribution=25000,
                 risk_tolerance="very_aggressive"
             )
 
@@ -156,8 +146,6 @@ class TestPerson:
             age=45,
             retirement_age=65,
             life_expectancy=85,
-            current_savings=500000,
-            annual_contribution=25000,
             risk_tolerance="moderate",
             goals=[goal1, goal2, goal3]
         )
@@ -173,8 +161,6 @@ class TestPerson:
             age=45,
             retirement_age=65,
             life_expectancy=85,
-            current_savings=500000,
-            annual_contribution=25000,
             risk_tolerance="moderate"
         )
         assert person.get_working_years() == 20
@@ -186,8 +172,6 @@ class TestPerson:
             age=45,
             retirement_age=65,
             life_expectancy=85,
-            current_savings=500000,
-            annual_contribution=25000,
             risk_tolerance="moderate"
         )
         assert person.get_retirement_years() == 20
@@ -209,8 +193,6 @@ class TestPersonIntegration:
             age=45,
             retirement_age=65,
             life_expectancy=85,
-            current_savings=750000,
-            annual_contribution=30000,
             risk_tolerance="moderate",
             tax_filing_status="married",
             state_of_residence="CA",

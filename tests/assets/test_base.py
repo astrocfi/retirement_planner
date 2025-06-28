@@ -15,12 +15,11 @@ class TestAssetType:
     """Test AssetType enum functionality."""
 
     def test_asset_type_values(self):
-        """Test that all asset types have correct string values."""
+        """Test that asset type values are correct."""
         assert AssetType.EQUITY.value == "equity"
         assert AssetType.BOND.value == "bond"
         assert AssetType.REAL_ESTATE.value == "real_estate"
         assert AssetType.COMMODITY.value == "commodity"
-        assert AssetType.PRIVATE_EQUITY.value == "private_equity"
         assert AssetType.CUSTOM.value == "custom"
         assert AssetType.CASH.value == "cash"
 
@@ -28,7 +27,7 @@ class TestAssetType:
         """Test that all expected asset types exist."""
         expected_types = [
             "equity", "bond", "real_estate", "commodity",
-            "private_equity", "custom", "cash"
+            "custom", "cash"
         ]
         actual_types = [asset_type.value for asset_type in AssetType]
         assert actual_types == expected_types

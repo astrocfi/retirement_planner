@@ -1,7 +1,7 @@
 """
 Cash asset classes for retirement planning.
 
-Contains cash equivalents, money market, and CD implementations.
+Contains a single CashEquivalent class with configuration for different cash types.
 """
 
 from dataclasses import dataclass, field
@@ -11,186 +11,177 @@ from .base import Asset, AssetType
 
 
 @dataclass(frozen=True)
-class Cash(Asset):
-    """Base cash class with common cash functionality."""
+class CashEquivalent(Asset):
+    """Single cash class supporting all cash equivalents with configuration."""
     interest_rate: float = 0.0
     fdic_insured: bool = True
     minimum_balance: float = 0.0
     monthly_fee: float = 0.0
+    liquidity_score: float = 1.0  # 0 = illiquid, 1 = highly liquid
+    account_type: str = "savings"  # savings, checking, cd, money_market
+    term_length: Optional[int] = None  # For CDs
+    early_withdrawal_penalty: float = 0.0  # For CDs
+    compounding_frequency: int = 1  # 1 = annual, 12 = monthly
+    check_writing_limit: Optional[int] = None  # For money market accounts
+    unlimited_transactions: bool = False  # For checking accounts
+
+    def __init__(self, name: str, current_value: float, expected_return: float, volatility: float, interest_rate: float = 0.0, fdic_insured: bool = True, minimum_balance: float = 0.0, monthly_fee: float = 0.0, liquidity_score: float = 1.0, account_type: str = "savings", term_length: Optional[int] = None, early_withdrawal_penalty: float = 0.0, compounding_frequency: int = 1, check_writing_limit: Optional[int] = None, unlimited_transactions: bool = False, **kwargs):
+        """Initialize CashEquivalent with asset_type automatically set."""
+        # Store cash-specific fields in metadata
+        metadata = {
+            'interest_rate': interest_rate,
+            'fdic_insured': fdic_insured,
+            'minimum_balance': minimum_balance,
+            'monthly_fee': monthly_fee,
+            'liquidity_score': liquidity_score,
+            'account_type': account_type,
+            'term_length': term_length,
+            'early_withdrawal_penalty': early_withdrawal_penalty,
+            'compounding_frequency': compounding_frequency,
+            'check_writing_limit': check_writing_limit,
+            'unlimited_transactions': unlimited_transactions
+        }
+        metadata.update(kwargs)
+
+        # Call parent constructor
+        super().__init__(
+            name=name,
+            asset_type=AssetType.CASH,
+            current_value=current_value,
+            expected_return=expected_return,
+            volatility=volatility,
+            metadata=metadata
+        )
 
     def __post_init__(self):
-        """Validate cash-specific data."""
-        # Set asset type before calling parent validation
-        object.__setattr__(self, 'asset_type', AssetType.CASH)
-        super().__post_init__()
+        """Validate cash equivalent specific data."""
+        # Get fields from metadata
+        interest_rate = self.get_metadata_field('interest_rate', 0.0)
+        minimum_balance = self.get_metadata_field('minimum_balance', 0.0)
+        monthly_fee = self.get_metadata_field('monthly_fee', 0.0)
+        liquidity_score = self.get_metadata_field('liquidity_score', 1.0)
+        account_type = self.get_metadata_field('account_type', 'savings')
+        term_length = self.get_metadata_field('term_length')
+        early_withdrawal_penalty = self.get_metadata_field('early_withdrawal_penalty', 0.0)
 
-        # Additional validation
-        if not (0 <= self.interest_rate <= 0.1):  # Max 10% interest rate
-            raise ValueError("Interest rate must be between 0% and 10%")
+        # Additional validation for cash equivalent specific fields
+        if not (0 <= interest_rate <= 0.2):  # Max 20% interest rate
+            raise ValueError("Interest rate must be between 0% and 20%")
 
-        if self.minimum_balance < 0:
-            raise ValueError("Minimum balance cannot be negative")
+        if minimum_balance < 0:
+            raise ValueError("Minimum balance must be non-negative")
 
-        if self.monthly_fee < 0:
-            raise ValueError("Monthly fee cannot be negative")
+        if monthly_fee < 0:
+            raise ValueError("Monthly fee must be non-negative")
+
+        if not (0 <= liquidity_score <= 1):
+            raise ValueError("Liquidity score must be between 0 and 1")
+
+        if account_type not in ['savings', 'checking', 'cd', 'money_market']:
+            raise ValueError("Account type must be 'savings', 'checking', 'cd', or 'money_market'")
+
+        if term_length is not None and term_length <= 0:
+            raise ValueError("Term length must be positive")
+
+        if not (0 <= early_withdrawal_penalty <= 1):  # Max 100% penalty
+            raise ValueError("Early withdrawal penalty must be between 0% and 100%")
 
     def _get_tax_rate(self) -> float:
         """Get tax rate for cash investments."""
         return 0.25  # Ordinary income rate for interest
 
-    def get_annual_interest(self) -> float:
+    def get_annual_interest_income(self) -> float:
         """Calculate annual interest income."""
-        return self.current_value * self.interest_rate
+        interest_rate = self.get_metadata_field('interest_rate', 0.0)
+        return self.current_value * interest_rate
 
-    def get_net_annual_return(self) -> float:
-        """Calculate net annual return after fees."""
-        annual_interest = self.get_annual_interest()
-        annual_fees = self.monthly_fee * 12
+    def get_net_interest_income(self) -> float:
+        """Calculate net interest income after fees."""
+        annual_interest = self.get_annual_interest_income()
+        monthly_fee = self.get_metadata_field('monthly_fee', 0.0)
+        annual_fees = monthly_fee * 12
         return annual_interest - annual_fees
 
-    def get_effective_yield(self) -> float:
-        """Calculate effective yield considering fees and minimum balance."""
-        if self.current_value < self.minimum_balance:
-            return 0.0  # No interest if below minimum balance
+    def get_effective_annual_yield(self) -> float:
+        """Calculate effective annual yield considering compounding."""
+        interest_rate = self.get_metadata_field('interest_rate', 0.0)
+        compounding_frequency = self.get_metadata_field('compounding_frequency', 1)
 
-        net_return = self.get_net_annual_return()
-        return net_return / self.current_value if self.current_value > 0 else 0.0
+        if compounding_frequency == 1:
+            return interest_rate
 
-    def is_tax_exempt(self) -> bool:
-        """Check if cash investment is tax-exempt."""
-        return False
+        # Calculate effective annual yield with compounding
+        # EAY = (1 + r/n)^n - 1 where r = interest_rate, n = compounding_frequency
+        return (1 + interest_rate / compounding_frequency) ** compounding_frequency - 1
+
+    def get_liquidity_penalty(self) -> float:
+        """Calculate liquidity penalty based on liquidity score."""
+        liquidity_score = self.get_metadata_field('liquidity_score', 1.0)
+        if liquidity_score >= 0.9:
+            return 0.0  # No penalty for highly liquid accounts
+
+        # Illiquid accounts get a penalty (as a percentage)
+        return (1 - liquidity_score) * 0.01
+
+    def get_early_withdrawal_penalty(self) -> float:
+        """Calculate early withdrawal penalty for CDs."""
+        account_type = self.get_metadata_field('account_type', 'savings')
+        early_withdrawal_penalty = self.get_metadata_field('early_withdrawal_penalty', 0.0)
+
+        if account_type == 'cd':
+            return self.current_value * early_withdrawal_penalty
+        return 0.0
+
+    def get_net_return_after_fees(self) -> float:
+        """Calculate net return after all fees and penalties."""
+        gross_interest = self.get_annual_interest_income()
+        monthly_fee = self.get_metadata_field('monthly_fee', 0.0)
+        annual_fees = monthly_fee * 12
+        liquidity_penalty_rate = self.get_liquidity_penalty()
+        liquidity_penalty = self.current_value * liquidity_penalty_rate
+        net_income = gross_interest - annual_fees - liquidity_penalty
+        return net_income / self.current_value if self.current_value > 0 else 0.0
+
+    def get_fdic_coverage(self) -> float:
+        """Get FDIC coverage amount."""
+        fdic_insured = self.get_metadata_field('fdic_insured', True)
+        if fdic_insured:
+            return 250000.0  # Standard FDIC limit
+        return 0.0
+
+    def get_risk_adjusted_return(self, risk_free_rate: float = 0.02) -> float:
+        """Calculate risk-adjusted return using Sharpe ratio."""
+        return (self.get_net_return_after_fees() - risk_free_rate) / self.volatility if self.volatility > 0 else 0.0
 
     def get_tax_treatment(self) -> Dict[str, Any]:
         """Get tax treatment for cash investments."""
         base_treatment = super().get_tax_treatment()
+
+        # Get fields from metadata
+        fdic_insured = self.get_metadata_field('fdic_insured', True)
+        account_type = self.get_metadata_field('account_type', 'savings')
+        liquidity_score = self.get_metadata_field('liquidity_score', 1.0)
+
         base_treatment.update({
             'interest_taxable': True,
-            'fdic_insured': self.fdic_insured,
-            'minimum_balance': self.minimum_balance,
-            'monthly_fee': self.monthly_fee
+            'fdic_insured': fdic_insured,
+            'account_type': account_type,
+            'liquidity_score': liquidity_score
         })
         return base_treatment
 
+    def get_after_tax_yield(self, marginal_tax_rate: float) -> float:
+        """Calculate after-tax yield."""
+        # Check if this is a tax-deferred account
+        if self.get_metadata_field('tax_deferred', False):
+            return self.get_net_return_after_fees()  # No taxes until withdrawal
+        return self.get_net_return_after_fees() * (1 - marginal_tax_rate)
 
-@dataclass(frozen=True)
-class MoneyMarket(Cash):
-    """Money market account implementation."""
-    account_type: str = "Savings"  # Savings, Checking, Investment
-    check_writing: bool = False
-    atm_access: bool = True
-    online_banking: bool = True
-
-    def __post_init__(self):
-        """Validate money market data."""
-        # Set asset type before calling parent validation
-        object.__setattr__(self, 'asset_type', AssetType.CASH)
-        super().__post_init__()
-
-    def get_liquidity_score(self) -> float:
-        """Get liquidity score for money market account."""
-        score = 0.9  # Base liquidity score
-
-        if self.check_writing:
-            score += 0.05
-        if self.atm_access:
-            score += 0.03
-        if self.online_banking:
-            score += 0.02
-
-        return min(score, 1.0)
-
-    def get_transaction_limits(self) -> Dict[str, Any]:
-        """Get transaction limits for money market account."""
-        limits = {
-            'monthly_withdrawals': 6 if self.account_type == "Savings" else float('inf'),
-            'minimum_check_amount': 500 if self.check_writing else None,
-            'atm_fee': 0 if self.atm_access else None
-        }
-        return limits
-
-    def get_tax_treatment(self) -> Dict[str, Any]:
-        """Get tax treatment for money market accounts."""
-        base_treatment = super().get_tax_treatment()
-        base_treatment.update({
-            'account_type': self.account_type,
-            'check_writing': self.check_writing,
-            'atm_access': self.atm_access,
-            'liquidity_score': self.get_liquidity_score()
-        })
-        return base_treatment
-
-
-@dataclass(frozen=True)
-class CD(Cash):
-    """Certificate of Deposit implementation."""
-    term_length: int = 12  # months
-    maturity_date: Optional[date] = None
-    early_withdrawal_penalty: float = 0.0
-    auto_renewal: bool = True
-    callable: bool = False
-
-    def __post_init__(self):
-        """Validate CD data."""
-        # Set asset type before calling parent validation
-        object.__setattr__(self, 'asset_type', AssetType.CASH)
-        super().__post_init__()
-
-        # Additional validation
-        if not (1 <= self.term_length <= 120):  # 1 month to 10 years
-            raise ValueError("Term length must be between 1 and 120 months")
-
-        if not (0 <= self.early_withdrawal_penalty <= 0.12):  # Max 12 months penalty
-            raise ValueError("Early withdrawal penalty must be between 0 and 12 months")
-
-    def get_annualized_yield(self) -> float:
-        """Calculate annualized yield for CD."""
-        # Convert monthly rate to annual rate
-        monthly_rate = self.interest_rate / 12
-        annualized_rate = (1 + monthly_rate) ** 12 - 1
-        return annualized_rate
-
-    def get_early_withdrawal_cost(self, months_early: int) -> float:
-        """Calculate cost of early withdrawal."""
-        if months_early <= 0:
-            return 0.0
-
-        # Simplified penalty calculation
-        penalty_months = min(months_early, self.early_withdrawal_penalty)
-        penalty_rate = penalty_months / 12
-        return self.current_value * penalty_rate
-
-    def get_liquidity_score(self) -> float:
-        """Get liquidity score for CD."""
-        # CDs are less liquid due to early withdrawal penalties
-        base_score = 0.3  # Base liquidity for CDs
-
-        # Shorter terms are more liquid
-        if self.term_length <= 6:
-            base_score += 0.2
-        elif self.term_length <= 12:
-            base_score += 0.1
-
-        # Lower penalties increase liquidity
-        if self.early_withdrawal_penalty <= 3:
-            base_score += 0.1
-
-        return min(base_score, 0.8)  # Max 80% liquidity for CDs
-
-    def get_maturity_value(self) -> float:
-        """Calculate value at maturity."""
-        annualized_rate = self.get_annualized_yield()
-        years = self.term_length / 12
-        return self.current_value * (1 + annualized_rate) ** years
-
-    def get_tax_treatment(self) -> Dict[str, Any]:
-        """Get tax treatment for CDs."""
-        base_treatment = super().get_tax_treatment()
-        base_treatment.update({
-            'term_length': self.term_length,
-            'maturity_date': self.maturity_date,
-            'early_withdrawal_penalty': self.early_withdrawal_penalty,
-            'auto_renewal': self.auto_renewal,
-            'callable': self.callable,
-            'liquidity_score': self.get_liquidity_score()
-        })
-        return base_treatment
+    def get_equivalent_taxable_yield(self, marginal_tax_rate: float) -> float:
+        """Calculate equivalent taxable yield for tax-deferred accounts."""
+        # Check if this is a tax-deferred account
+        if self.get_metadata_field('tax_deferred', False):
+            tax_deferred_yield = self.get_net_return_after_fees()
+            return tax_deferred_yield / (1 - marginal_tax_rate)
+        # For cash accounts, this is the same as net return since they're typically taxable
+        return self.get_net_return_after_fees()

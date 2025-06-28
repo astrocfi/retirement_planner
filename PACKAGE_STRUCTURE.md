@@ -108,11 +108,14 @@ retirement_planner/
 - **scenarios.py**: Scenario definition and management
 
 ### Assets
-- **base.py**: Base asset class with common functionality
-- **equities.py**: Domestic/international stocks, dividend modeling
-- **bonds.py**: Government/corporate bonds, yield curve modeling
-- **alternatives.py**: Real estate, commodities, private equity
-- **cash.py**: Cash equivalents, money market, CDs
+- [x] `retirement_planner/assets/__init__.py`
+- [x] `retirement_planner/assets/base.py`
+- [x] `retirement_planner/assets/equities.py`
+- [x] `retirement_planner/assets/bonds.py`
+- [x] `retirement_planner/assets/alternatives.py`
+- [x] `retirement_planner/assets/cash.py`
+
+All asset types (including custom) are present and tested.
 
 ### Taxes
 - **federal.py**: Federal income tax calculations

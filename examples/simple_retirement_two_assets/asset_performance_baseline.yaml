@@ -1,0 +1,21 @@
+# Baseline Asset Performance Scenario
+# Typical historical returns for stocks and bonds
+
+asset_performance:
+  - type: "stocks"
+    asset_type: "equity"
+    expected_return: 0.07
+    volatility: 0.15
+    correlation:
+      stocks: 1.0
+      bonds: 0.0
+    description: "US large cap stocks"
+
+  - type: "bonds"
+    asset_type: "fixed_income"
+    expected_return: 0.04
+    volatility: 0.05
+    correlation:
+      stocks: 0.0
+      bonds: 1.0
+    description: "US investment grade bonds"

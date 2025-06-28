@@ -1,0 +1,21 @@
+# High Returns Asset Performance Scenario
+# Optimistic returns for stocks and bonds
+
+asset_performance:
+  - type: "stocks"
+    asset_type: "equity"
+    expected_return: 0.10
+    volatility: 0.18
+    correlation:
+      stocks: 1.0
+      bonds: 0.0
+    description: "US large cap stocks (optimistic)"
+
+  - type: "bonds"
+    asset_type: "fixed_income"
+    expected_return: 0.06
+    volatility: 0.06
+    correlation:
+      stocks: 0.0
+      bonds: 1.0
+    description: "US investment grade bonds (optimistic)"

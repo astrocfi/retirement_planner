@@ -1,0 +1,57 @@
+# Unified Configuration for Simple Retirement Two Assets Example
+# This file combines person, assets, events, simulation, and economy sections
+# Asset performance is loaded from separate files
+
+# Person Section
+person:
+  name: "Two Asset Retiree"
+  age: 65
+  retirement_age: 65
+  life_expectancy: 95
+  risk_tolerance: "moderate"
+  tax_filing_status: "single"
+  state_of_residence: "CA"
+  goals:
+    - name: "Don't run out of money"
+      goal_type: "min_portfolio_value"
+      target_amount: 1
+      target_age: 95
+      priority: "essential"
+      description: "Ensure the portfolio never depletes to zero during retirement."
+
+# Assets Section (simplified - only type and current value)
+assets:
+  - type: "stocks"
+    current_value: 600000.0
+    notes: "Stock allocation (60% of portfolio)"
+  - type: "bonds"
+    current_value: 400000.0
+    notes: "Bond allocation (40% of portfolio)"
+
+# Events Section
+events:
+  income: []
+  expenses:
+    - name: "retirement_expenses"
+      event_type: "expense"
+      period:
+        start_age: 65
+        end_age: 95
+        description: "Retirement living expenses"
+      amount: 80000.0
+      probability: 1.0
+      description: "Annual retirement expenses (today's dollars)"
+  assets: []
+  liabilities: []
+  benefits: []
+
+# Simulation Section
+simulation:
+  num_scenarios: 1000
+  time_horizon: 30
+
+# Economy Section
+economy:
+  inflation:
+    expected_rate: 0.025
+    volatility: 0.01

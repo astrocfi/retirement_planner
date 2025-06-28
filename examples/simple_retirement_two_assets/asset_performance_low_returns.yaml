@@ -1,0 +1,21 @@
+# Low Returns Asset Performance Scenario
+# Conservative returns for stocks and bonds
+
+asset_performance:
+  - type: "stocks"
+    asset_type: "equity"
+    expected_return: 0.04
+    volatility: 0.12
+    correlation:
+      stocks: 1.0
+      bonds: 0.0
+    description: "US large cap stocks (conservative)"
+
+  - type: "bonds"
+    asset_type: "fixed_income"
+    expected_return: 0.02
+    volatility: 0.04
+    correlation:
+      stocks: 0.0
+      bonds: 1.0
+    description: "US investment grade bonds (conservative)"

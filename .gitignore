@@ -194,4 +194,4 @@ cython_debug/
 .cursorindexingignore
 
 # Ignore results directory for generated reports and outputs
-results/
+results*/

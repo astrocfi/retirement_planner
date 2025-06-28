@@ -946,3 +946,7 @@ Portfolio analysis complete!
 - [x] WithdrawalOptimizer
 
 - **Exception Classes**: RetirementPlannerException, ValidationError, ConfigurationError, DataError, SimulationError, OptimizationError, TaxCalculationError, AssetError, EventError, PortfolioError, AnalysisError
+
+## Reporting & Charting (Phase 8)
+- matplotlib>=3.0  # For chart generation
+- pandas>=1.0      # For data export (CSV)

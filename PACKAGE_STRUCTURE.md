@@ -173,3 +173,18 @@ All asset types (including custom) are present and tested.
 6. **Event-Driven**: Temporal events drive cash flow modeling
 7. **Optimization Ready**: Built-in support for strategy optimization
 8. **Extensible**: Easy to add new asset classes, tax rules, etc.
+
+## New Reports Module
+
+The `reports` module includes:
+- **generator.py**: ReportGenerator, ChartCreator, DataExporter, ReportConfig
+- **formatters.py**: TextFormatter, HtmlFormatter, JsonFormatter
+
+## New CLI/Reporting Integration
+
+The `run_analysis.py` script now fully integrates with the reporting module.
+
+## New Tests
+
+The `tests` directory includes:
+- **reports/**: test_generator.py, test_formatters.py

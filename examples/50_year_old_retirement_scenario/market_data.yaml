@@ -7,16 +7,16 @@ portfolio_allocation:
   bonds: 0.40
   cash: 0.00
 
-# Expected Returns (annual)
+# Expected Returns (annual) - NOMINAL returns (will be converted to real returns)
 expected_returns:
-  stocks: 0.07      # 7% average annual return
-  bonds: 0.03       # 3% average annual return
-  cash: 0.02        # 2% average annual return
+  stocks: 0.07      # 7% nominal annual return (will become ~4.5% real with 2.5% inflation)
+  bonds: 0.045      # 4.5% nominal annual return (will become ~2% real with 2.5% inflation)
+  cash: 0.04        # 4% nominal annual return (will become ~1.5% real with 2.5% inflation)
 
 # Volatility (annual standard deviation)
 volatility:
-  stocks: 0.18      # 18% annual volatility
-  bonds: 0.08       # 8% annual volatility
+  stocks: 0.12      # 12% annual volatility (more realistic)
+  bonds: 0.05       # 5% annual volatility (more realistic)
   cash: 0.02        # 2% annual volatility
 
 # Correlation Matrix
@@ -42,7 +42,7 @@ risk_free_rate:
   frequency: "monthly"
   source: "Treasury"
 
-# Inflation Assumptions
+# Inflation Assumptions (used to convert nominal returns to real returns)
 inflation:
   expected_rate: 0.025    # 2.5% annual inflation
   volatility: 0.01        # 1% inflation volatility
@@ -59,21 +59,21 @@ data_sources:
   bonds: "AGG"            # Aggregate Bond ETF
   risk_free: "GS3M"       # 3-Month Treasury
 
-# Market Regime Assumptions
+# Market Regime Assumptions (nominal returns)
 market_regimes:
   normal:
     probability: 0.70
     stock_return: 0.07
-    bond_return: 0.03
-    stock_vol: 0.18
-    bond_vol: 0.08
+    bond_return: 0.045
+    stock_vol: 0.12
+    bond_vol: 0.05
 
   recession:
     probability: 0.20
     stock_return: -0.10
     bond_return: 0.08
-    stock_vol: 0.25
-    bond_vol: 0.12
+    stock_vol: 0.20
+    bond_vol: 0.08
 
   boom:
     probability: 0.10

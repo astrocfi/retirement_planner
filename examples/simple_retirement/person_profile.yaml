@@ -1,0 +1,8 @@
+name: "Simple Retiree"
+age: 65
+retirement_age: 65
+life_expectancy: 95
+risk_tolerance: "moderate"
+tax_filing_status: "single"
+state_of_residence: "CA"
+goals: []

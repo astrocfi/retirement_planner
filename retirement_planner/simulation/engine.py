@@ -81,23 +81,26 @@ class MarketSimulator:
         self.correlation_matrix = correlation_matrix or {}
         self.logger = RetirementPlannerLogger()
 
-    def simulate_returns(self, assets: Dict[str, Asset], num_years: int) -> Dict[str, List[float]]:
-        """Simulate returns for all assets over the given time period."""
+    def simulate_returns(self, assets: Dict[str, Asset], num_years: int, inflation_rate: float = 0.025) -> Dict[str, List[float]]:
+        """Simulate real returns (nominal returns minus inflation) for all assets over the given time period."""
         returns = {}
 
         for asset_name, asset in assets.items():
             # Use asset's expected return and volatility for simulation
-            expected_return = asset.expected_return
+            nominal_return = asset.expected_return
             volatility = asset.volatility
 
-            # Generate random returns using normal distribution
+            # Generate random nominal returns using normal distribution
             # Annual returns are assumed to be normally distributed
-            annual_returns = np.random.normal(expected_return, volatility, num_years)
+            nominal_returns = np.random.normal(nominal_return, volatility, num_years)
 
             # Ensure returns are reasonable (not below -100%)
-            annual_returns = np.maximum(annual_returns, -0.99)
+            nominal_returns = np.maximum(nominal_returns, -0.99)
 
-            returns[asset_name] = annual_returns.tolist()
+            # Convert to real returns by subtracting inflation
+            real_returns = nominal_returns - inflation_rate
+
+            returns[asset_name] = real_returns.tolist()
 
         return returns
 
@@ -132,7 +135,13 @@ class MarketSimulator:
 
         # Simulate each year
         for year in range(num_years):
-            # Calculate portfolio return for this year
+            # Apply contributions and withdrawals FIRST
+            net_cash_flow = contributions[year] - withdrawals[year]
+            if net_cash_flow != 0:
+                # Distribute cash flow proportionally across assets
+                current_portfolio = self._apply_cash_flow(current_portfolio, net_cash_flow)
+
+            # Calculate portfolio return for this year (on the post-cash-flow portfolio)
             year_returns = {asset: returns[asset][year] for asset in returns.keys()}
             portfolio_return = self._calculate_portfolio_return(current_portfolio, year_returns)
             scenario_returns.append(portfolio_return)
@@ -147,7 +156,8 @@ class MarketSimulator:
                 else:
                     # If no return data for this asset, keep the same value
                     new_value = current_value
-                new_asset_values[asset_name] = new_value
+                # Clamp asset value to zero (never negative)
+                new_asset_values[asset_name] = max(new_value, 0.0)
 
             # Create new portfolio with updated values
             current_portfolio = current_portfolio.__class__(
@@ -156,12 +166,6 @@ class MarketSimulator:
                 asset_values=new_asset_values,
                 rebalancing_strategy=current_portfolio.rebalancing_strategy
             )
-
-            # Apply contributions and withdrawals
-            net_cash_flow = contributions[year] - withdrawals[year]
-            if net_cash_flow != 0:
-                # Distribute cash flow proportionally across assets
-                current_portfolio = self._apply_cash_flow(current_portfolio, net_cash_flow)
 
             # Rebalance portfolio
             current_portfolio = current_portfolio.rebalance()
@@ -177,6 +181,12 @@ class MarketSimulator:
                 break
 
         # Create scenario result
+        # Ensure portfolio_values has the correct length for all scenarios
+        expected_length = num_years + 1
+        if len(portfolio_values) < expected_length:
+            # Pad with zeros for failed scenarios
+            portfolio_values.extend([0.0] * (expected_length - len(portfolio_values)))
+
         return SimulationScenario(
             scenario_id=0,  # Will be set by the engine
             years=list(range(num_years + 1)),
@@ -247,11 +257,13 @@ class MonteCarloEngine:
         time_horizon: int,
         withdrawals: List[float],
         contributions: List[float],
-        seed: Optional[int] = None
+        seed: Optional[int] = None,
+        inflation_rate: float = 0.025
     ) -> SimulationResult:
-        """Run Monte Carlo simulation."""
+        """Run Monte Carlo simulation with real returns (inflation-adjusted)."""
         try:
             self.logger.log(LogLevel.INFO, f"Starting Monte Carlo simulation with {num_scenarios:,} scenarios")
+            self.logger.log(LogLevel.INFO, f"Using real returns (inflation rate: {inflation_rate:.1%})")
 
             # Set random seed if provided
             if seed is not None:
@@ -265,8 +277,8 @@ class MonteCarloEngine:
             for i, scenario in enumerate(scenarios):
                 self.logger.log(LogLevel.INFO, f"Running scenario {i+1}/{num_scenarios}")
 
-                # Simulate returns for this scenario
-                returns = self.market_simulator.simulate_returns(portfolio.assets, time_horizon)
+                # Simulate real returns for this scenario
+                returns = self.market_simulator.simulate_returns(portfolio.assets, time_horizon, inflation_rate)
 
                 # Run portfolio simulation
                 simulation_scenario = self.market_simulator.simulate_portfolio_evolution(

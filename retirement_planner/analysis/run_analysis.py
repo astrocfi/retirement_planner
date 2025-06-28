@@ -78,6 +78,8 @@ def analyze(args):
     """Run the complete retirement analysis with simulation and reporting."""
     output_dir = Path(args.output_dir)
     output_dir.mkdir(exist_ok=True)
+    # Generate timestamp ONCE for all outputs
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     print("=" * 60)
     print("RETIREMENT PLANNER ANALYSIS")
     print("=" * 60)
@@ -134,12 +136,12 @@ def analyze(args):
                     period=period,
                     amount=event_data["amount"],
                     probability=event_data["probability"],
-                    inflation_adjustment=event_data["inflation_adjustment"],
+                    inflation_adjustment=False,  # No inflation adjustment since we use real returns
                     description=event_data["description"],
                     metadata=event_data.get("metadata", {})
                 )
                 event_manager.add_event(event)
-        logger.log(LogLevel.INFO, f"Loaded {len(event_manager.events)} events")
+        logger.log(LogLevel.INFO, f"Loaded {len(event_manager.events)} events (all in today's dollars)")
 
         # Extract initial portfolio value from events
         initial_portfolio_event = None
@@ -156,6 +158,10 @@ def analyze(args):
         market_loader = ConfigLoader()
         market_loader.load_from_file(args.market_data)
         market_data = market_loader.config_data
+
+        # Get inflation rate from market data
+        inflation_rate = market_data.get("inflation", {}).get("expected_rate", 0.025)
+        logger.log(LogLevel.INFO, f"Inflation rate: {inflation_rate:.1%}")
 
         # Create assets using factory - handle both formats
         asset_factory = AssetFactory()
@@ -275,13 +281,48 @@ def analyze(args):
 
         # Prepare cash flows from events
         time_horizon = sim_data["simulation"]["time_horizon"]
-        withdrawals = [0.0] * time_horizon  # Placeholder - should be calculated from events
-        contributions = [0.0] * time_horizon  # Placeholder - should be calculated from events
+        withdrawals = []
+        contributions = []
+        start_age = person.age
+        cash_flow_details = []  # For reporting
+        for year in range(time_horizon):
+            age = start_age + year
+            context = {"year": year, "age": age}
+            event_results = event_manager.process_events_at_age(age, context)
+            net_cash_flow = (
+                event_results['income'] + event_results['benefits'] + event_results['assets']
+                - event_results['expenses'] - event_results['liabilities'] - event_results['tax_impact']
+            )
+            if net_cash_flow >= 0:
+                contributions.append(net_cash_flow)
+                withdrawals.append(0.0)
+            else:
+                contributions.append(0.0)
+                withdrawals.append(-net_cash_flow)
+            cash_flow_details.append({
+                'year': year,
+                'age': age,
+                'income': event_results['income'] + event_results['benefits'],
+                'expense': event_results['expenses']
+            })
+        logger.log(LogLevel.INFO, f"Contributions by year: {contributions}")
+        logger.log(LogLevel.INFO, f"Withdrawals by year: {withdrawals}")
 
-        # Debug: Check what simulate_returns returns
-        test_returns = market_simulator.simulate_returns(portfolio.assets, 1)
-        logger.log(LogLevel.INFO, f"Test returns keys: {list(test_returns.keys())}")
-        logger.log(LogLevel.INFO, f"Test returns values: {test_returns}")
+        # Print cash flow report
+        report_lines = []
+        report_lines.append("CASH FLOW REPORT (from events)")
+        report_lines.append("Year | Age |   Income   |  Expense  ")
+        report_lines.append("-----------------------------------")
+        for row in cash_flow_details:
+            report_lines.append(f"{row['year']:4d} | {row['age']:3d} | {row['income']:10,.0f} | {row['expense']:9,.0f}")
+        report_lines.append("-----------------------------------\n")
+        report_text = "\n".join(report_lines)
+        print("\n" + report_text)
+        # Use the same timestamp for all outputs
+        cash_flow_report_path = output_dir / f"cash_flow_report_{timestamp}.txt"
+        with open(cash_flow_report_path, "w") as f:
+            f.write(report_text)
+        logger.log(LogLevel.INFO, f"Cash flow report written to {cash_flow_report_path}")
 
         simulation_result = simulation_engine.run_simulation(
             portfolio=portfolio,
@@ -289,7 +330,7 @@ def analyze(args):
             time_horizon=time_horizon,
             withdrawals=withdrawals,
             contributions=contributions,
-            seed=sim_data["simulation"].get("seed", None)
+            inflation_rate=inflation_rate
         )
 
         logger.log(LogLevel.SUCCESS, f"Simulation completed. Success rate: {simulation_result.success_rate:.1f}%")
@@ -333,7 +374,8 @@ def analyze(args):
             retirement_analysis=retirement_analysis,
             simulation_result=simulation_result,
             withdrawal_result=withdrawal_result,
-            output_dir=output_dir
+            output_dir=output_dir,
+            timestamp=timestamp
         )
 
         # Print summary

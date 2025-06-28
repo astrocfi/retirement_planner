@@ -66,8 +66,8 @@ class Person:
         validator.add_field_validator('risk_tolerance').add_rule(ChoiceRule('risk_tolerance', ['conservative', 'moderate', 'aggressive']))
         validator.add_field_validator('tax_filing_status').add_rule(ChoiceRule('tax_filing_status', ['single', 'married', 'head_of_household']))
 
-        if self.retirement_age <= self.age:
-            raise ValidationError("Retirement age must be after current age")
+        if self.retirement_age < self.age:
+            raise ValidationError("Retirement age must be at least current age")
 
         if self.life_expectancy <= self.retirement_age:
             raise ValidationError("Life expectancy must be after retirement age")

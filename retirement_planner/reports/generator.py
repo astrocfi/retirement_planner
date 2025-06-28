@@ -53,7 +53,7 @@ class ChartCreator:
         self,
         simulation_result: SimulationResult,
         output_path: Path,
-        title: str = "Portfolio Evolution Over Time"
+        title: str = "Portfolio Evolution Over Time (Today's Dollars)"
     ) -> Path:
         """Create portfolio evolution chart showing median and percentiles."""
         try:
@@ -84,7 +84,7 @@ class ChartCreator:
                           alpha=0.3, color='#1f77b4', label='25th-75th percentile range')
 
             ax.set_xlabel('Years')
-            ax.set_ylabel('Portfolio Value ($)')
+            ax.set_ylabel('Portfolio Value (Today\'s Dollars)')
             ax.set_title(title)
             ax.legend()
             ax.grid(True, alpha=0.3)
@@ -106,7 +106,7 @@ class ChartCreator:
         self,
         simulation_result: SimulationResult,
         output_path: Path,
-        title: str = "Individual Simulation Paths",
+        title: str = "Individual Simulation Paths (Today's Dollars)",
         max_paths: int = 100
     ) -> Path:
         """Create chart showing individual simulation paths overlaid."""
@@ -159,7 +159,7 @@ class ChartCreator:
             ax.legend(handles=legend_elements, loc='upper left')
 
             ax.set_xlabel('Years')
-            ax.set_ylabel('Portfolio Value ($)')
+            ax.set_ylabel('Portfolio Value (Today\'s Dollars)')
             ax.set_title(f"{title}\n(Showing {len(selected_scenarios)} paths, Success Rate: {simulation_result.success_rate:.1%})")
             ax.grid(True, alpha=0.3)
 
@@ -452,12 +452,14 @@ class ReportGenerator:
         retirement_analysis: RetirementAnalysis,
         simulation_result: SimulationResult,
         withdrawal_result: Optional[WithdrawalOptimizationResult] = None,
-        output_dir: Path = Path("reports")
+        output_dir: Path = Path("reports"),
+        timestamp: str = None
     ) -> Dict[str, Path]:
         """Generate a comprehensive retirement analysis report."""
         try:
             output_dir.mkdir(exist_ok=True)
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            if timestamp is None:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             report_files = {}
 
@@ -551,10 +553,10 @@ class ReportGenerator:
                 f.write(f"Number of Scenarios: {len(simulation_result.scenarios):,}\n")
                 f.write(f"Time Horizon: {simulation_result.time_horizon} years\n")
                 f.write(f"Overall Success Rate: {simulation_result.success_rate:.1%}\n")
-                f.write(f"Average Final Portfolio Value: ${simulation_result.average_portfolio_value:,.0f}\n")
-                f.write(f"Median Final Portfolio Value: ${simulation_result.median_portfolio_value:,.0f}\n")
-                f.write(f"Best Case Final Value: ${simulation_result.best_case_portfolio_value:,.0f}\n")
-                f.write(f"Worst Case Final Value: ${simulation_result.worst_case_portfolio_value:,.0f}\n")
+                f.write(f"Average Final Portfolio Value: ${simulation_result.average_portfolio_value:,.0f} (today's dollars)\n")
+                f.write(f"Median Final Portfolio Value: ${simulation_result.median_portfolio_value:,.0f} (today's dollars)\n")
+                f.write(f"Best Case Final Value: ${simulation_result.best_case_portfolio_value:,.0f} (today's dollars)\n")
+                f.write(f"Worst Case Final Value: ${simulation_result.worst_case_portfolio_value:,.0f} (today's dollars)\n")
                 if simulation_result.average_years_to_failure:
                     f.write(f"Average Years to Failure: {simulation_result.average_years_to_failure:.1f}\n")
                 f.write("\n")
@@ -577,10 +579,10 @@ class ReportGenerator:
                     f.write("WITHDRAWAL STRATEGY ANALYSIS\n")
                     f.write("-" * 40 + "\n")
                     f.write(f"Optimal Withdrawal Rate: {withdrawal_result.optimal_withdrawal_rate:.1%}\n")
-                    f.write(f"Optimal Annual Withdrawal: ${withdrawal_result.optimal_annual_withdrawal:,.0f}\n")
+                    f.write(f"Optimal Annual Withdrawal: ${withdrawal_result.optimal_annual_withdrawal:,.0f} (today's dollars)\n")
                     f.write(f"Success Rate: {withdrawal_result.success_rate:.1%}\n")
-                    f.write(f"Average Portfolio Value: ${withdrawal_result.average_portfolio_value:,.0f}\n")
-                    f.write(f"Worst Case Portfolio Value: ${withdrawal_result.worst_case_portfolio_value:,.0f}\n\n")
+                    f.write(f"Average Portfolio Value: ${withdrawal_result.average_portfolio_value:,.0f} (today's dollars)\n")
+                    f.write(f"Worst Case Portfolio Value: ${withdrawal_result.worst_case_portfolio_value:,.0f} (today's dollars)\n\n")
 
                 # Recommendations
                 f.write("RECOMMENDATIONS\n")

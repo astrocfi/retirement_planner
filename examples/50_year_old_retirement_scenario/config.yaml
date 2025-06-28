@@ -1,0 +1,338 @@
+# Unified Configuration for 50-Year-Old Retirement Scenario
+# This file combines person, assets, asset_performance, events, simulation, and economy sections
+
+# Person Section
+person:
+  name: "Sarah Johnson"
+  age: 50
+  retirement_age: 67
+  life_expectancy: 95
+  current_savings: 1000000.0
+  risk_tolerance: "moderate"  # conservative, moderate, aggressive
+  tax_filing_status: "single"  # single, married, head_of_household
+  state_of_residence: "CA"
+
+  # Goals
+  goals:
+    - name: "savings_sustainability"
+      target_amount: 0.0  # Goal is to not run out of money
+      target_age: 95
+      priority: "essential"
+      goal_type: "income"
+      inflation_adjusted: true
+      description: "Ensure savings last until death at age 95"
+
+    - name: "maintain_lifestyle"
+      target_amount: 80000.0
+      target_age: 85
+      priority: "important"
+      goal_type: "lifestyle"
+      inflation_adjusted: true
+      description: "Maintain $80K/year lifestyle until age 85"
+
+# Assets Section (simplified - only type and current value)
+assets:
+  - name: "S&P 500 ETF"
+    asset_type: "equity"
+    current_value: 600000.0
+    notes: "Large cap domestic equity exposure"
+
+  - name: "International Developed Markets ETF"
+    asset_type: "equity"
+    current_value: 150000.0
+    notes: "International developed markets exposure"
+
+  - name: "Small Cap Value ETF"
+    asset_type: "equity"
+    current_value: 100000.0
+    notes: "Small cap value exposure"
+
+  - name: "Total Bond Market ETF"
+    asset_type: "bond"
+    current_value: 300000.0
+    notes: "Core bond exposure"
+
+  - name: "Municipal Bond Fund"
+    asset_type: "bond"
+    current_value: 50000.0
+    notes: "Tax-exempt municipal bonds"
+
+  - name: "High Yield Savings Account"
+    asset_type: "cash"
+    current_value: 50000.0
+    notes: "Liquid cash reserves"
+
+  - name: "Money Market Account"
+    asset_type: "cash"
+    current_value: 25000.0
+    notes: "Money market for short-term needs"
+
+  - name: "Real Estate Investment Trust"
+    asset_type: "real_estate"
+    current_value: 75000.0
+    notes: "REIT exposure for diversification"
+
+  - name: "Gold ETF"
+    asset_type: "commodity"
+    current_value: 25000.0
+    notes: "Gold exposure for inflation hedge"
+
+  - name: "Private Business Investment"
+    asset_type: "custom"
+    current_value: 100000.0
+    notes: "Private business investment"
+
+# Asset Performance Section (detailed characteristics)
+asset_performance:
+  # Equity Assets
+  "S&P 500 ETF":
+    expected_return: 0.07
+    volatility: 0.18
+    correlation: {}
+    dividend_yield: 0.015
+    beta: 1.0
+    market_cap: "large"
+    geography: "domestic"
+    is_public: true
+    sector: "Broad Market"
+
+  "International Developed Markets ETF":
+    expected_return: 0.06
+    volatility: 0.20
+    correlation: {}
+    dividend_yield: 0.025
+    beta: 0.9
+    market_cap: "large"
+    geography: "international"
+    is_public: true
+    region: "Developed Markets"
+    foreign_tax_rate: 0.15
+
+  "Small Cap Value ETF":
+    expected_return: 0.09
+    volatility: 0.25
+    correlation: {}
+    dividend_yield: 0.02
+    beta: 1.2
+    market_cap: "small"
+    geography: "domestic"
+    is_public: true
+    sector: "Value"
+
+  # Bond Assets
+  "Total Bond Market ETF":
+    expected_return: 0.03
+    volatility: 0.08
+    correlation: {}
+    coupon_rate: 0.025
+    face_value: 1000.0
+    tax_treatment: "taxable"
+    issuer_type: "government"
+    credit_rating: "AAA"
+    duration: 6.5
+
+  "Municipal Bond Fund":
+    expected_return: 0.025
+    volatility: 0.06
+    correlation: {}
+    coupon_rate: 0.025
+    face_value: 1000.0
+    tax_treatment: "tax-exempt"
+    issuer_type: "municipal"
+    credit_rating: "AA"
+    duration: 8.0
+
+  # Cash Assets
+  "High Yield Savings Account":
+    expected_return: 0.035
+    volatility: 0.01
+    correlation: {}
+    interest_rate: 0.035
+    fdic_insured: true
+    minimum_balance: 1000.0
+    monthly_fee: 0.0
+    liquidity_score: 1.0
+    account_type: "savings"
+    compounding_frequency: 12
+
+  "Money Market Account":
+    expected_return: 0.04
+    volatility: 0.008
+    correlation: {}
+    interest_rate: 0.04
+    fdic_insured: true
+    minimum_balance: 2500.0
+    monthly_fee: 12.0
+    liquidity_score: 0.9
+    account_type: "money_market"
+    check_writing_limit: 3
+
+  # Alternative Assets
+  "Real Estate Investment Trust":
+    expected_return: 0.07
+    volatility: 0.18
+    correlation: {}
+    property_type: "REIT"
+    rental_yield: 0.04
+    appreciation_rate: 0.03
+    property_tax_rate: 0.012
+    maintenance_rate: 0.02
+    leverage_ratio: 0.0
+
+  "Gold ETF":
+    expected_return: 0.04
+    volatility: 0.20
+    correlation: {}
+    commodity_type: "Gold"
+    delivery_mechanism: "ETF"
+    storage_cost_rate: 0.0
+    insurance_cost_rate: 0.0
+
+  "Private Business Investment":
+    expected_return: 0.12
+    volatility: 0.30
+    correlation: {}
+    custom_type: "Business"
+    income_stream: 0.06
+    growth_rate: 0.02
+    liquidity_score: 0.2
+    complexity_score: 0.8
+
+# Events Section
+events:
+  income: []
+  expenses:
+    - name: "retirement_expenses"
+      event_type: "expense"
+      period:
+        start_age: 67
+        end_age: 95
+        description: "Retirement living expenses"
+      amount: 80000.0
+      probability: 1.0
+      description: "Annual retirement expenses (today's dollars)"
+  assets: []
+  liabilities: []
+  benefits: []
+
+# Simulation Section
+simulation:
+  num_scenarios: 10000
+  time_horizon: 45  # Years to simulate (50 to 95 = 45 years)
+  time_step: 1
+  random_seed: 42
+  random_generation:
+    method: "sobol"
+    antithetic_variates: true
+    latin_hypercube: false
+  market_scenarios:
+    return_distribution: "normal"
+    fat_tails: true
+    regime_switching: true
+    regimes:
+      normal:
+        probability: 0.70
+        duration_mean: 5.0
+      recession:
+        probability: 0.20
+        duration_mean: 2.0
+      boom:
+        probability: 0.10
+        duration_mean: 3.0
+  correlations:
+    stock_bond_correlation: -0.1
+    stock_cash_correlation: 0.0
+    bond_cash_correlation: 0.1
+    inflation_return_correlation: -0.2
+    inflation_bond_correlation: -0.3
+  portfolio:
+    rebalancing:
+      frequency: "annual"
+      threshold: 0.05
+      costs: 0.001
+    withdrawal_strategy: "constant_real"
+    withdrawal_rate: 0.04
+    glide_path:
+      enabled: true
+      start_allocation:
+        stocks: 0.60
+        bonds: 0.40
+      end_allocation:
+        stocks: 0.30
+        bonds: 0.70
+      transition_age: 85
+  risk_management:
+    stop_loss:
+      enabled: true
+      threshold: -0.20
+      action: "reduce_withdrawals"
+    dynamic_withdrawals:
+      enabled: true
+      adjustment_factor: 0.1
+      lookback_period: 3
+  success_criteria:
+    portfolio_success:
+      min_ending_value: 0.0
+      probability_threshold: 0.80
+    income_success:
+      min_income_ratio: 0.8
+      probability_threshold: 0.90
+  output:
+    generate_summary: true
+    generate_detailed_scenarios: false
+    generate_charts: true
+    generate_reports: true
+    charts:
+      - "monte_carlo_paths"
+      - "success_probability"
+      - "withdrawal_sustainability"
+      - "asset_allocation_evolution"
+      - "cash_flow_projection"
+      - "risk_metrics"
+    report_format: "pdf"
+    include_appendix: true
+    output_prefix: "retirement_analysis"
+    timestamp_output: true
+  performance:
+    parallel_processing: true
+    num_processes: 4
+    memory_limit: "4GB"
+    cache_results: true
+
+# Economy Section
+economy:
+  inflation:
+    expected_rate: 0.025
+    volatility: 0.01
+    model: "random_walk"
+    mean_reversion_speed: 0.1
+    long_term_mean: 0.025
+  risk_free_rate:
+    rate: 0.025
+    start_date: "2024-01-01"
+    end_date: "2050-12-31"
+    frequency: "monthly"
+    source: "Treasury"
+  data_sources:
+    stocks: "SPY"
+    bonds: "AGG"
+    risk_free: "GS3M"
+  market_regimes:
+    normal:
+      probability: 0.70
+      stock_return: 0.07
+      bond_return: 0.045
+      stock_vol: 0.12
+      bond_vol: 0.05
+    recession:
+      probability: 0.20
+      stock_return: -0.10
+      bond_return: 0.08
+      stock_vol: 0.20
+      bond_vol: 0.08
+    boom:
+      probability: 0.10
+      stock_return: 0.20
+      bond_return: 0.01
+      stock_vol: 0.15
+      bond_vol: 0.06

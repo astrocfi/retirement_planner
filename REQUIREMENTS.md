@@ -7,7 +7,7 @@
 - **Dependency Injection**: All external dependencies (tax rates, market data, etc.) injected for testability
 - **Immutable Data Models**: All financial data structures immutable to prevent accidental state changes
 - **Type Hints**: Full type annotation throughout codebase for IDE support and runtime validation
-- **Configuration Management**: YAML/JSON configuration files for all parameters (tax rates, asset allocations, etc.)
+- **Configuration Management**: Unified YAML/JSON configuration files with section merging, multiple file support, and asset/performance separation
 
 **Status**: IMPLEMENTED - Core foundation modules completed
 

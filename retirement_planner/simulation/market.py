@@ -154,8 +154,6 @@ class SimpleMarketModel(MarketModel):
     """Simple market model using uncorrelated returns."""
 
     def __init__(self, seed: Optional[int] = None):
-        if seed is not None:
-            np.random.seed(seed)
         self.return_simulator = ReturnSimulator()
 
     def simulate_returns(self, assets: Dict[str, Asset], num_years: int) -> Dict[str, List[float]]:
@@ -167,8 +165,6 @@ class CorrelatedMarketModel(MarketModel):
     """Market model using correlated returns."""
 
     def __init__(self, correlation_model: CorrelationModel, seed: Optional[int] = None):
-        if seed is not None:
-            np.random.seed(seed)
         self.return_simulator = ReturnSimulator(correlation_model)
 
     def simulate_returns(self, assets: Dict[str, Asset], num_years: int) -> Dict[str, List[float]]:

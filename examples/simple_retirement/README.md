@@ -1,15 +1,12 @@
-# 50-Year-Old Retirement Scenario Example
+# Simple Retirement Example
 
 ## Scenario Overview
 
-This example demonstrates a retirement planning scenario for a 50-year-old woman with the following profile:
+This example demonstrates a basic retirement planning scenario for a 65-year-old retiree with a simple portfolio.
 
 ### Personal Information
-- **Age**: 50 years old
-- **Current Income**: $100,000/year
-- **Current Savings**: $1,000,000 (60% stocks, 40% bonds)
-- **Annual 401(k) Contribution**: $20,000
-- **Planned Retirement Age**: 67
+- **Age**: 65 years old (already retired)
+- **Current Savings**: $1,000,000 (100% stocks)
 - **Life Expectancy**: 95 years
 
 ### Financial Profile
@@ -17,18 +14,13 @@ This example demonstrates a retirement planning scenario for a 50-year-old woman
 - **Tax Filing Status**: Single
 - **State of Residence**: California
 
-### Income Sources
-- **Employment Income**: $100,000/year until age 67
-- **Social Security**: Starting at age 67 (estimated $35,000/year)
-
-### Expenses
-- **Working Years (50-67)**: $80,000/year
-- **Early Retirement (67-85)**: $80,000/year
-- **Late Retirement (85-95)**: $60,000/year (reduced expenses)
+### Portfolio
+- **Asset Allocation**: 100% stocks
+- **Expected Return**: 7% annually
+- **Volatility**: 12% annually
 
 ### Goals
 - **Primary Goal**: Ensure savings last until death at age 95
-- **Secondary Goal**: Maintain $80,000/year lifestyle until age 85
 
 ## Analysis Question
 
@@ -36,7 +28,7 @@ This example demonstrates a retirement planning scenario for a 50-year-old woman
 
 ## Configuration Files
 
-This example now uses the unified configuration format:
+This example uses the unified configuration format:
 
 ### New Unified Format (Recommended)
 - **unified_config.yaml** - Complete configuration in single file
@@ -47,31 +39,16 @@ This example now uses the unified configuration format:
 - **market_data.yaml** - Asset allocation and market assumptions
 - **simulation_config.yaml** - Monte Carlo simulation parameters
 
-## Testing
-
-The example includes tests to verify configuration validity:
-
-```bash
-# Run the events configuration test
-cd tests
-python test_events.py
-```
-
-The test validates:
-- No overlapping event periods of the same type
-- Complete expense coverage across all ages
-- Proper event configuration structure
-
 ## Usage
 
 ### Using the Unified Configuration (Recommended)
 
 ```bash
 # Using the unified configuration file
-python -m retirement_planner.analysis.run_analysis validate --config examples/50_year_old_retirement_scenario/unified_config.yaml
+python -m retirement_planner.analysis.run_analysis validate --config examples/simple_retirement/unified_config.yaml
 
 # Run full analysis with unified config
-python -m retirement_planner.analysis.run_analysis run_analysis --config examples/50_year_old_retirement_scenario/unified_config.yaml --output-dir results/
+python -m retirement_planner.analysis.run_analysis run_analysis --config examples/simple_retirement/unified_config.yaml --output-dir results/
 ```
 
 ### Using Multiple Configuration Files
@@ -80,7 +57,7 @@ python -m retirement_planner.analysis.run_analysis run_analysis --config example
 # Combine multiple config files (later files override earlier ones)
 python -m retirement_planner.analysis.run_analysis validate \
     --config examples/simple_retirement/unified_config.yaml \
-    examples/50_year_old_retirement_scenario/unified_config.yaml
+    examples/complicated/unified_config.yaml
 ```
 
 ### Legacy Usage (Deprecated)
@@ -107,10 +84,20 @@ The analysis will generate:
 ## Key Assumptions
 
 - **Inflation Rate**: 2.5% annually
-- **Investment Returns**: 7% average (stocks), 3% average (bonds)
-- **Social Security**: COLA-adjusted benefits
-- **Tax Rates**: Current federal and California rates
-- **Market Volatility**: Historical levels for 60/40 portfolio
+- **Investment Returns**: 7% average (stocks)
+- **Market Volatility**: 12% annually
+- **Time Horizon**: 30 years (65 to 95)
+
+## Simple vs Complex Examples
+
+This simple example demonstrates:
+- **Basic portfolio**: Single asset type
+- **Minimal configuration**: Essential parameters only
+- **Easy to understand**: Good starting point for learning
+
+For more complex scenarios, see:
+- **50_year_old_retirement_scenario**: Moderate complexity with diverse assets
+- **complicated**: High complexity with advanced features
 
 ## Migration to Unified Format
 

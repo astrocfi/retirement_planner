@@ -1,0 +1,369 @@
+# Unified Retirement Planning Configuration
+# 50-year-old woman retirement planning scenario
+
+# Person Profile
+person:
+  name: "Sarah Johnson"
+  age: 50
+  retirement_age: 67
+  life_expectancy: 95
+  risk_tolerance: "moderate"  # conservative, moderate, aggressive
+  tax_filing_status: "single"  # single, married, head_of_household
+  state_of_residence: "CA"
+
+  # Goals
+  goals:
+    - name: "savings_sustainability"
+      target_amount: 0.0  # Goal is to not run out of money
+      target_age: 95
+      priority: "essential"
+      goal_type: "income"
+      inflation_adjusted: true
+      description: "Ensure savings last until death at age 95"
+
+    - name: "maintain_lifestyle"
+      target_amount: 80000.0
+      target_age: 85
+      priority: "important"
+      goal_type: "lifestyle"
+      inflation_adjusted: true
+      description: "Maintain $80K/year lifestyle until age 85"
+
+  # Additional Data
+  additional_data: {}
+
+# Assets (simple list with type references)
+assets:
+  - type: sp500_etf
+    current_value: 600000
+    notes: "Held at UBS"
+  - type: int_dev_etf
+    current_value: 150000
+    notes: "Held at ML"
+  - type: small_cap_etf
+    current_value: 100000
+    notes: "Held at Fidelity"
+  - type: bond_etf
+    current_value: 300000
+    notes: "Held at Vanguard"
+  - type: muni_bond
+    current_value: 50000
+    notes: "Held at Schwab"
+  - type: savings_account
+    current_value: 50000
+    notes: "Emergency fund"
+  - type: money_market
+    current_value: 25000
+    notes: "Short-term needs"
+  - type: reit_etf
+    current_value: 75000
+    notes: "Diversification"
+  - type: gold_etf
+    current_value: 25000
+    notes: "Inflation hedge"
+  - type: business_investment
+    current_value: 100000
+    notes: "Private business"
+
+# Asset Performance Characteristics
+asset_performance:
+  - type: sp500_etf
+    asset_type: "equity"
+    expected_return: 0.07
+    volatility: 0.18
+    correlation: {}
+    description: "Large cap domestic equity exposure"
+    dividend_yield: 0.015
+    is_liquid: true
+
+  - type: int_dev_etf
+    asset_type: "equity"
+    expected_return: 0.06
+    volatility: 0.20
+    correlation: {}
+    description: "International developed markets exposure"
+    dividend_yield: 0.025
+    is_liquid: true
+
+  - type: small_cap_etf
+    asset_type: "equity"
+    expected_return: 0.09
+    volatility: 0.25
+    correlation: {}
+    description: "Small cap value exposure"
+    dividend_yield: 0.02
+    is_liquid: true
+
+  - type: bond_etf
+    asset_type: "bond"
+    expected_return: 0.03
+    volatility: 0.08
+    correlation: {}
+    description: "Core bond exposure"
+    coupon_rate: 0.025
+    is_liquid: true
+
+  - type: muni_bond
+    asset_type: "bond"
+    expected_return: 0.025
+    volatility: 0.06
+    correlation: {}
+    description: "Tax-exempt municipal bonds"
+    coupon_rate: 0.025
+    is_liquid: true
+
+  - type: savings_account
+    asset_type: "cash"
+    expected_return: 0.035
+    volatility: 0.01
+    correlation: {}
+    description: "Liquid cash reserves"
+    interest_rate: 0.035
+    is_liquid: true
+
+  - type: money_market
+    asset_type: "cash"
+    expected_return: 0.04
+    volatility: 0.008
+    correlation: {}
+    description: "Money market for short-term needs"
+    interest_rate: 0.04
+    is_liquid: true
+
+  - type: reit_etf
+    asset_type: "real_estate"
+    expected_return: 0.07
+    volatility: 0.18
+    correlation: {}
+    description: "REIT exposure for diversification"
+    rental_yield: 0.04
+    is_liquid: true
+
+  - type: gold_etf
+    asset_type: "commodity"
+    expected_return: 0.04
+    volatility: 0.20
+    correlation: {}
+    description: "Gold exposure for inflation hedge"
+    commodity_type: "Gold"
+    is_liquid: true
+
+  - type: business_investment
+    asset_type: "custom"
+    expected_return: 0.12
+    volatility: 0.30
+    correlation: {}
+    description: "Private business investment"
+    custom_type: "Business"
+    is_liquid: false
+
+# Events Configuration
+events:
+  events:
+    income:
+      - name: "employment_income"
+        event_type: "income"
+        period:
+          start_age: 50
+          end_age: 67
+          description: "Employment income period"
+        amount: 80000.0
+        probability: 1.0
+        description: "Current employment income until retirement (today's dollars)"
+
+      - name: "social_security_benefits"
+        event_type: "benefit"
+        period:
+          start_age: 67
+          end_age: 95
+          description: "Social Security benefits period"
+        amount: 25000.0
+        probability: 1.0
+        description: "Social Security benefits starting at full retirement age (today's dollars)"
+
+    expenses:
+      - name: "working_living_expenses"
+        event_type: "expense"
+        period:
+          start_age: 50
+          end_age: 66
+          description: "Living expenses during working years"
+        amount: 70000.0
+        probability: 1.0
+        description: "Annual living expenses during working years (today's dollars)"
+
+      - name: "early_retirement_expenses"
+        event_type: "expense"
+        period:
+          start_age: 67
+          end_age: 84
+          description: "Living expenses during early retirement"
+        amount: 180000.0
+        probability: 1.0
+        description: "Annual living expenses during early retirement (today's dollars)"
+
+      - name: "late_retirement_expenses"
+        event_type: "expense"
+        period:
+          start_age: 85
+          end_age: 95
+          description: "Reduced living expenses during late retirement"
+        amount: 160000.0
+        probability: 1.0
+        description: "Reduced annual living expenses during late retirement (today's dollars)"
+
+    assets:
+      - name: "initial_portfolio"
+        event_type: "asset"
+        period:
+          start_age: 50
+          end_age: 95
+          description: "Initial portfolio value"
+        amount: 1000000.0
+        probability: 1.0
+        description: "Initial portfolio value of $1M (today's dollars)"
+
+      - name: "annual_401k_contribution"
+        event_type: "asset"
+        period:
+          start_age: 50
+          end_age: 66
+          description: "Annual 401(k) contributions"
+        amount: 10000.0
+        probability: 1.0
+        description: "Annual 401(k) contributions until retirement (today's dollars)"
+
+# Simulation Configuration
+simulation:
+  num_scenarios: 10000
+  time_horizon: 45
+  time_step: 1
+  random_seed: 42
+
+  # Random Number Generation
+  random_generation:
+    method: "sobol"
+    antithetic_variates: true
+    latin_hypercube: false
+
+  # Market Scenario Generation
+  market_scenarios:
+    return_distribution: "normal"
+    fat_tails: true
+    regime_switching: true
+    regimes:
+      normal:
+        probability: 0.70
+        duration_mean: 5.0
+      recession:
+        probability: 0.20
+        duration_mean: 2.0
+      boom:
+        probability: 0.10
+        duration_mean: 3.0
+
+  # Portfolio Management
+  portfolio:
+    rebalancing:
+      frequency: "annual"
+      threshold: 0.05
+      costs: 0.001
+
+    withdrawal_strategy: "constant_real"
+    withdrawal_rate: 0.04
+
+    glide_path:
+      enabled: true
+      start_allocation:
+        stocks: 0.60
+        bonds: 0.40
+      end_allocation:
+        stocks: 0.30
+        bonds: 0.70
+      transition_age: 85
+
+  # Risk Management
+  risk_management:
+    stop_loss:
+      enabled: true
+      threshold: -0.20
+      action: "reduce_withdrawals"
+
+    dynamic_withdrawals:
+      enabled: true
+      adjustment_factor: 0.1
+      lookback_period: 3
+
+  # Success Criteria
+  success_criteria:
+    portfolio_success:
+      min_ending_value: 0.0
+      probability_threshold: 0.80
+
+    income_success:
+      min_income_ratio: 0.8
+      probability_threshold: 0.90
+
+  # Output Configuration
+  output:
+    generate_summary: true
+    generate_detailed_scenarios: false
+    generate_charts: true
+    generate_reports: true
+
+    charts:
+      - "monte_carlo_paths"
+      - "success_probability"
+      - "withdrawal_sustainability"
+      - "asset_allocation_evolution"
+      - "cash_flow_projection"
+      - "risk_metrics"
+
+    report_format: "html"
+    include_appendix: true
+    output_prefix: "retirement_analysis"
+    timestamp_output: true
+
+  # Performance Optimization
+  performance:
+    parallel_processing: true
+    num_processes: 4
+    memory_limit: "4GB"
+    cache_results: true
+
+# Economy Configuration
+economy:
+  inflation:
+    expected_rate: 0.025
+    volatility: 0.01
+
+  # Risk-Free Rate
+  risk_free_rate:
+    rate: 0.025
+    start_date: "2024-01-01"
+    end_date: "2050-12-31"
+    frequency: "monthly"
+    source: "Treasury"
+
+  # Market Regime Assumptions
+  market_regimes:
+    normal:
+      probability: 0.70
+      stock_return: 0.07
+      bond_return: 0.045
+      stock_vol: 0.12
+      bond_vol: 0.05
+
+    recession:
+      probability: 0.20
+      stock_return: -0.10
+      bond_return: 0.08
+      stock_vol: 0.20
+      bond_vol: 0.08
+
+    boom:
+      probability: 0.10
+      stock_return: 0.20
+      bond_return: 0.01
+      stock_vol: 0.15
+      bond_vol: 0.06

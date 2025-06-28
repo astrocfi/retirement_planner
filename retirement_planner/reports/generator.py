@@ -17,7 +17,7 @@ import pandas as pd
 from dataclasses import dataclass
 
 from retirement_planner.core.exceptions import AnalysisError
-from retirement_planner.core.logging import RetirementPlannerLogger, LogLevel
+from retirement_planner.core.logging import RetirementPlannerLogger, LogLevel, FinancialFormatter
 from retirement_planner.analysis.retirement import RetirementAnalysis
 from retirement_planner.analysis.withdrawal import WithdrawalOptimizationResult
 from retirement_planner.simulation.engine import SimulationResult
@@ -48,6 +48,10 @@ class ChartCreator:
         plt.rcParams['font.size'] = 10
         plt.rcParams['axes.grid'] = True
         plt.rcParams['grid.alpha'] = 0.3
+
+    def _format_currency_axis(self, value, pos):
+        """Format currency values for Y-axis using FinancialFormatter."""
+        return FinancialFormatter.format_currency(value)
 
     def create_portfolio_evolution_chart(
         self,
@@ -89,11 +93,12 @@ class ChartCreator:
             ax.legend()
             ax.grid(True, alpha=0.3)
 
-            # Format y-axis as currency
-            ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x/1000:.0f}K'))
+            # Set Y-axis to start at 0 and use improved formatting
+            ax.set_ylim(bottom=0)
+            ax.yaxis.set_major_formatter(plt.FuncFormatter(self._format_currency_axis))
 
-            plt.tight_layout()
-            plt.savefig(output_path, dpi=300, bbox_inches='tight')
+            plt.subplots_adjust(left=0.1, right=0.95, top=0.9, bottom=0.15, wspace=0.3)
+            plt.savefig(output_path, dpi=300, bbox_inches='tight', pad_inches=0.1)
             plt.close()
 
             self.logger.log(LogLevel.INFO, f"Portfolio evolution chart saved to {output_path}")
@@ -163,11 +168,12 @@ class ChartCreator:
             ax.set_title(f"{title}\n(Showing {len(selected_scenarios)} paths, Success Rate: {simulation_result.success_rate:.1%})")
             ax.grid(True, alpha=0.3)
 
-            # Format y-axis as currency
-            ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x/1000:.0f}K'))
+            # Set Y-axis to start at 0 and use improved formatting
+            ax.set_ylim(bottom=0)
+            ax.yaxis.set_major_formatter(plt.FuncFormatter(self._format_currency_axis))
 
-            plt.tight_layout()
-            plt.savefig(output_path, dpi=300, bbox_inches='tight')
+            plt.subplots_adjust(left=0.1, right=0.95, top=0.9, bottom=0.15, wspace=0.3)
+            plt.savefig(output_path, dpi=300, bbox_inches='tight', pad_inches=0.1)
             plt.close()
 
             self.logger.log(LogLevel.INFO, f"Simulation paths chart saved to {output_path}")
@@ -204,8 +210,8 @@ class ChartCreator:
             ax.grid(True, alpha=0.3, axis='y')
 
             plt.xticks(rotation=45, ha='right')
-            plt.tight_layout()
-            plt.savefig(output_path, dpi=300, bbox_inches='tight')
+            plt.subplots_adjust(left=0.1, right=0.95, top=0.9, bottom=0.15, wspace=0.3)
+            plt.savefig(output_path, dpi=300, bbox_inches='tight', pad_inches=0.1)
             plt.close()
 
             self.logger.log(LogLevel.INFO, f"Success rate chart saved to {output_path}")
@@ -249,7 +255,7 @@ class ChartCreator:
                 for bar, amount in zip(bars2, avg_withdrawals):
                     height = bar.get_height()
                     ax2.text(bar.get_x() + bar.get_width()/2., height + 1000,
-                            f'${amount/1000:.0f}K', ha='center', va='bottom')
+                            FinancialFormatter.format_currency(amount), ha='center', va='bottom')
 
                 ax2.set_xlabel('Withdrawal Strategy')
                 ax2.set_ylabel('Average Annual Withdrawal ($)')
@@ -257,8 +263,8 @@ class ChartCreator:
                 ax2.grid(True, alpha=0.3, axis='y')
                 plt.setp(ax2.xaxis.get_majorticklabels(), rotation=45, ha='right')
 
-                plt.tight_layout()
-                plt.savefig(output_path, dpi=300, bbox_inches='tight')
+                plt.subplots_adjust(left=0.1, right=0.95, top=0.9, bottom=0.15, wspace=0.3)
+                plt.savefig(output_path, dpi=300, bbox_inches='tight', pad_inches=0.1)
                 plt.close()
             else:
                 # Single optimal strategy case
@@ -285,14 +291,14 @@ class ChartCreator:
                 for bar, amount in zip(bars2, avg_withdrawals):
                     height = bar.get_height()
                     ax2.text(bar.get_x() + bar.get_width()/2., height + 1000,
-                            f'${amount/1000:.0f}K', ha='center', va='bottom')
+                            FinancialFormatter.format_currency(amount), ha='center', va='bottom')
                 ax2.set_xlabel('Strategy')
                 ax2.set_ylabel('Average Annual Withdrawal ($)')
                 ax2.set_title('Optimal Annual Withdrawal')
                 ax2.grid(True, alpha=0.3, axis='y')
 
-                plt.tight_layout()
-                plt.savefig(output_path, dpi=300, bbox_inches='tight')
+                plt.subplots_adjust(left=0.1, right=0.95, top=0.9, bottom=0.15, wspace=0.3)
+                plt.savefig(output_path, dpi=300, bbox_inches='tight', pad_inches=0.1)
                 plt.close()
 
             self.logger.log(LogLevel.INFO, f"Withdrawal strategy chart saved to {output_path}")
@@ -321,8 +327,8 @@ class ChartCreator:
 
             ax.set_title(title)
 
-            plt.tight_layout()
-            plt.savefig(output_path, dpi=300, bbox_inches='tight')
+            plt.subplots_adjust(left=0.1, right=0.95, top=0.9, bottom=0.15, wspace=0.3)
+            plt.savefig(output_path, dpi=300, bbox_inches='tight', pad_inches=0.1)
             plt.close()
 
             self.logger.log(LogLevel.INFO, f"Asset allocation chart saved to {output_path}")
@@ -360,17 +366,34 @@ class DataExporter:
         """Export simulation data to CSV format."""
         data = []
         for i, scenario in enumerate(simulation_result.scenarios):
-            for year, value in enumerate(scenario.portfolio_values):
+            num_years = len(scenario.portfolio_values) - 1
+            for year in range(num_years):
+                starting_value = scenario.portfolio_values[year]
+                final_value = scenario.portfolio_values[year + 1]
+                income = scenario.contributions[year] if year < len(scenario.contributions) else 0.0
+                expenses = scenario.withdrawals[year] if year < len(scenario.withdrawals) else 0.0
                 data.append({
                     'scenario': i,
                     'year': year,
-                    'portfolio_value': value,
+                    'starting_portfolio_value': starting_value,
+                    'income': income,
+                    'expenses': expenses,
+                    'final_portfolio_value': final_value,
                     'success': scenario.success
                 })
-
+            # Optionally, include the last year as a terminal row (with no change)
+            # last_year = num_years
+            # data.append({
+            #     'scenario': i,
+            #     'year': last_year,
+            #     'starting_portfolio_value': scenario.portfolio_values[last_year],
+            #     'income': 0.0,
+            #     'expenses': 0.0,
+            #     'final_portfolio_value': scenario.portfolio_values[last_year],
+            #     'success': scenario.success
+            # })
         df = pd.DataFrame(data)
         df.to_csv(output_path, index=False)
-
         self.logger.log(LogLevel.INFO, f"Simulation data exported to CSV: {output_path}")
         return output_path
 

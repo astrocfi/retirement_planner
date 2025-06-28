@@ -18,7 +18,7 @@ class Goal:
     target_amount: float
     target_age: int
     priority: str  # essential, important, nice_to_have
-    goal_type: str  # income, legacy, purchase, lifestyle
+    goal_type: str  # income, legacy, purchase, lifestyle, min_portfolio_value
     inflation_adjusted: bool = True
     description: Optional[str] = None
 
@@ -29,7 +29,7 @@ class Goal:
         validator.add_field_validator('target_amount').add_rule(RangeRule('target_amount', min_value=0))
         validator.add_field_validator('target_age').add_rule(RangeRule('target_age', min_value=0, max_value=120))
         validator.add_field_validator('priority').add_rule(ChoiceRule('priority', ['essential', 'important', 'nice_to_have']))
-        validator.add_field_validator('goal_type').add_rule(ChoiceRule('goal_type', ['income', 'legacy', 'purchase', 'lifestyle']))
+        validator.add_field_validator('goal_type').add_rule(ChoiceRule('goal_type', ['income', 'legacy', 'purchase', 'lifestyle', 'min_portfolio_value']))
 
         result = validator.validate({
             'name': self.name,

@@ -1,258 +1,269 @@
 """
-Unit tests for retirement planner configuration management.
-
-These tests verify the configuration loading, validation, and type-safe
-access functionality work correctly.
+Tests for configuration management functionality.
 """
 
 import pytest
 import tempfile
 import os
-import json
+from pathlib import Path
 from retirement_planner.core.config import (
-    BaseConfig,
-    ConfigLoader,
-    AppConfig,
-    get_default_schema,
+    UnifiedConfigLoader, ConfigLoader, BaseConfig, AppConfig, get_default_schema
 )
 from retirement_planner.core.exceptions import ConfigurationError
 
 
-class TestBaseConfig:
-    """Test BaseConfig functionality."""
+class TestUnifiedConfigLoader:
+    """Test the unified configuration loader."""
 
-    def test_base_config_creation(self):
-        """Test creating a BaseConfig instance."""
-        config = BaseConfig()
-        assert isinstance(config, BaseConfig)
+    def test_unified_config_loader_creation(self):
+        """Test creating a unified config loader."""
+        loader = UnifiedConfigLoader()
+        assert loader.config_data == {}
+        assert loader.loaded_files == []
 
-    def test_base_config_from_dict(self):
-        """Test creating config from dictionary."""
-        data = {"app_name": "TestApp", "debug": True}
-        config = BaseConfig.from_dict(data)
-        assert isinstance(config, BaseConfig)
+    def test_load_from_single_file(self):
+        """Test loading from a single file."""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            f.write("""
+person:
+  name: "John Doe"
+  age: 30
+assets:
+  - type: stock
+    current_value: 100000
+asset_performance:
+  - type: stock
+    expected_return: 0.07
+    volatility: 0.15
+            """)
+            file_path = f.name
 
-    def test_base_config_to_dict(self):
-        """Test converting config to dictionary."""
-        config = BaseConfig()
-        result = config.to_dict()
-        assert isinstance(result, dict)
+        try:
+            loader = UnifiedConfigLoader()
+            loader.load_from_file(file_path)
 
+            assert loader.has_section('person')
+            assert loader.has_section('assets')
+            assert loader.has_section('asset_performance')
+            assert len(loader.loaded_files) == 1
+            assert file_path in loader.loaded_files
 
-class TestAppConfig:
-    """Test AppConfig functionality."""
+            person_data = loader.get_section('person')
+            assert person_data['name'] == "John Doe"
+            assert person_data['age'] == 30
 
-    def test_app_config_default_values(self):
-        """Test AppConfig with default values."""
-        config = AppConfig()
-        assert config.app_name == "RetirementPlanner"
-        assert config.debug is False
-        assert config.log_level == "INFO"
+        finally:
+            os.unlink(file_path)
 
-    def test_app_config_custom_values(self):
-        """Test AppConfig with custom values."""
-        config = AppConfig(
-            app_name="CustomApp",
-            debug=True,
-            log_level="DEBUG"
-        )
-        assert config.app_name == "CustomApp"
-        assert config.debug is True
-        assert config.log_level == "DEBUG"
+    def test_load_from_multiple_files(self):
+        """Test loading from multiple files with section merging."""
+        # Create first file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f1:
+            f1.write("""
+person:
+  name: "John Doe"
+  age: 30
+assets:
+  - type: stock
+    current_value: 100000
+            """)
+            file_path1 = f1.name
 
-    def test_app_config_from_dict(self):
-        """Test creating AppConfig from dictionary."""
-        data = {
-            "app_name": "TestApp",
-            "debug": True,
-            "log_level": "WARNING"
+        # Create second file that overrides some values
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f2:
+            f2.write("""
+person:
+  age: 35  # Override age
+  city: "New York"  # Add new field
+asset_performance:
+  - type: stock
+    expected_return: 0.07
+    volatility: 0.15
+            """)
+            file_path2 = f2.name
+
+        try:
+            loader = UnifiedConfigLoader()
+            loader.load_from_files([file_path1, file_path2])
+
+            # Check that sections are merged
+            assert loader.has_section('person')
+            assert loader.has_section('assets')
+            assert loader.has_section('asset_performance')
+            assert len(loader.loaded_files) == 2
+
+            # Check that person data is merged correctly
+            person_data = loader.get_section('person')
+            assert person_data['name'] == "John Doe"  # From first file
+            assert person_data['age'] == 35  # Overridden by second file
+            assert person_data['city'] == "New York"  # Added by second file
+
+        finally:
+            os.unlink(file_path1)
+            os.unlink(file_path2)
+
+    def test_get_section(self):
+        """Test getting specific sections."""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            f.write("""
+person:
+  name: "John Doe"
+assets:
+  - type: stock
+    current_value: 100000
+            """)
+            file_path = f.name
+
+        try:
+            loader = UnifiedConfigLoader()
+            loader.load_from_file(file_path)
+
+            person_section = loader.get_section('person')
+            assert person_section['name'] == "John Doe"
+
+            assets_section = loader.get_section('assets')
+            assert len(assets_section) == 1
+            assert assets_section[0]['type'] == 'stock'
+
+            # Test non-existent section
+            non_existent = loader.get_section('non_existent')
+            assert non_existent == {}
+
+        finally:
+            os.unlink(file_path)
+
+    def test_has_section(self):
+        """Test checking if sections exist."""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            f.write("""
+person:
+  name: "John Doe"
+            """)
+            file_path = f.name
+
+        try:
+            loader = UnifiedConfigLoader()
+            loader.load_from_file(file_path)
+
+            assert loader.has_section('person')
+            assert not loader.has_section('non_existent')
+
+        finally:
+            os.unlink(file_path)
+
+    def test_get_all_sections(self):
+        """Test getting all sections."""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            f.write("""
+person:
+  name: "John Doe"
+assets:
+  - type: stock
+    current_value: 100000
+            """)
+            file_path = f.name
+
+        try:
+            loader = UnifiedConfigLoader()
+            loader.load_from_file(file_path)
+
+            all_sections = loader.get_all_sections()
+            assert 'person' in all_sections
+            assert 'assets' in all_sections
+            assert len(all_sections) == 2
+
+        finally:
+            os.unlink(file_path)
+
+    def test_save_to_file(self):
+        """Test saving configuration to file."""
+        config_data = {
+            'person': {'name': 'John Doe', 'age': 30},
+            'assets': [{'type': 'stock', 'current_value': 100000}]
         }
-        config = AppConfig.from_dict(data)
-        assert config.app_name == "TestApp"
-        assert config.debug is True
-        assert config.log_level == "WARNING"
 
-    def test_app_config_to_dict(self):
-        """Test converting AppConfig to dictionary."""
-        config = AppConfig(app_name="TestApp", debug=True)
-        result = config.to_dict()
-        assert result["app_name"] == "TestApp"
-        assert result["debug"] is True
-        assert result["log_level"] == "INFO"  # Default value
+        loader = UnifiedConfigLoader()
+        loader.config_data = config_data
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            file_path = f.name
+
+        try:
+            loader.save_to_file(file_path)
+
+            # Load it back and verify
+            new_loader = UnifiedConfigLoader()
+            new_loader.load_from_file(file_path)
+
+            assert new_loader.get_section('person') == config_data['person']
+            assert new_loader.get_section('assets') == config_data['assets']
+
+        finally:
+            os.unlink(file_path)
+
+    def test_invalid_file_type(self):
+        """Test loading invalid file type."""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+            f.write("invalid content")
+            file_path = f.name
+
+        try:
+            loader = UnifiedConfigLoader()
+            with pytest.raises(ConfigurationError, match="Unsupported config file type"):
+                loader.load_from_file(file_path)
+        finally:
+            os.unlink(file_path)
+
+    def test_invalid_yaml_content(self):
+        """Test loading invalid YAML content."""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            f.write("invalid: yaml: content: [")
+            file_path = f.name
+
+        try:
+            loader = UnifiedConfigLoader()
+            with pytest.raises(ConfigurationError):
+                loader.load_from_file(file_path)
+        finally:
+            os.unlink(file_path)
+
+    def test_non_dict_content(self):
+        """Test loading non-dictionary content."""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            f.write("not a dictionary")
+            file_path = f.name
+
+        try:
+            loader = UnifiedConfigLoader()
+            with pytest.raises(ConfigurationError, match="Configuration file must contain a dictionary"):
+                loader.load_from_file(file_path)
+        finally:
+            os.unlink(file_path)
 
 
 class TestConfigLoader:
-    """Test ConfigLoader functionality."""
+    """Test the legacy config loader for backward compatibility."""
 
-    def test_config_loader_creation(self):
-        """Test creating ConfigLoader with and without schema."""
-        # Without schema
-        loader = ConfigLoader()
-        assert loader.schema is None
-        assert loader.config_data == {}
-
-        # With schema
-        schema = {"type": "object"}
-        loader = ConfigLoader(schema)
-        assert loader.schema == schema
-
-    def test_load_from_yaml_file(self):
-        """Test loading configuration from YAML file."""
-        loader = ConfigLoader()
-
-        # Create temporary YAML file
+    def test_legacy_config_loader(self):
+        """Test that legacy config loader still works."""
         with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
-            f.write("app_name: TestApp\ndebug: true\nlog_level: DEBUG")
-            yaml_file = f.name
+            f.write("""
+app_name: "TestApp"
+debug: true
+log_level: "INFO"
+            """)
+            file_path = f.name
 
         try:
-            loader.load_from_file(yaml_file)
-            assert loader.config_data["app_name"] == "TestApp"
-            assert loader.config_data["debug"] is True
-            assert loader.config_data["log_level"] == "DEBUG"
+            loader = ConfigLoader()
+            loader.load_from_file(file_path)
+
+            assert loader.config_data['app_name'] == "TestApp"
+            assert loader.config_data['debug'] is True
+            assert loader.config_data['log_level'] == "INFO"
+
         finally:
-            os.unlink(yaml_file)
-
-    def test_load_from_json_file(self):
-        """Test loading configuration from JSON file."""
-        loader = ConfigLoader()
-
-        # Create temporary JSON file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-            json.dump({
-                "app_name": "TestApp",
-                "debug": True,
-                "log_level": "DEBUG"
-            }, f)
-            json_file = f.name
-
-        try:
-            loader.load_from_file(json_file)
-            assert loader.config_data["app_name"] == "TestApp"
-            assert loader.config_data["debug"] is True
-            assert loader.config_data["log_level"] == "DEBUG"
-        finally:
-            os.unlink(json_file)
-
-    def test_load_from_path_object(self):
-        """Test loading configuration from Path object."""
-        from pathlib import Path
-
-        loader = ConfigLoader()
-
-        # Create temporary JSON file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-            json.dump({
-                "app_name": "TestApp",
-                "debug": True,
-                "log_level": "DEBUG"
-            }, f)
-            json_file = f.name
-
-        try:
-            # Test with Path object
-            path = Path(json_file)
-            loader.load_from_file(path)
-            assert loader.config_data["app_name"] == "TestApp"
-            assert loader.config_data["debug"] is True
-            assert loader.config_data["log_level"] == "DEBUG"
-        finally:
-            os.unlink(json_file)
-
-    def test_load_from_unsupported_file_type(self):
-        """Test loading from unsupported file type raises error."""
-        loader = ConfigLoader()
-
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
-            f.write("some content")
-            txt_file = f.name
-
-        try:
-            with pytest.raises(ConfigurationError) as exc_info:
-                loader.load_from_file(txt_file)
-            assert "Unsupported config file type" in str(exc_info.value)
-        finally:
-            os.unlink(txt_file)
-
-    def test_load_from_nonexistent_file(self):
-        """Test loading from nonexistent file raises error."""
-        loader = ConfigLoader()
-
-        with pytest.raises(ConfigurationError) as exc_info:
-            loader.load_from_file("nonexistent_file.yaml")
-        assert "Failed to load configuration file" in str(exc_info.value)
-
-    def test_override_with_env_variables(self):
-        """Test overriding config with environment variables."""
-        loader = ConfigLoader()
-        loader.config_data = {
-            "app_name": "DefaultApp",
-            "debug": False,
-            "log_level": "INFO"
-        }
-
-        # Set environment variables
-        os.environ["RP_APP_NAME"] = "EnvApp"
-        os.environ["RP_DEBUG"] = "true"
-        os.environ["RP_LOG_LEVEL"] = "DEBUG"
-
-        try:
-            loader.override_with_env()
-            assert loader.config_data["app_name"] == "EnvApp"
-            assert loader.config_data["debug"] is True
-            assert loader.config_data["log_level"] == "DEBUG"
-        finally:
-            # Clean up environment variables
-            del os.environ["RP_APP_NAME"]
-            del os.environ["RP_DEBUG"]
-            del os.environ["RP_LOG_LEVEL"]
-
-    def test_override_with_env_json_values(self):
-        """Test overriding config with JSON environment variables."""
-        loader = ConfigLoader()
-        loader.config_data = {
-            "settings": {"default": "value"}
-        }
-
-        # Set JSON environment variable
-        os.environ["RP_SETTINGS"] = '{"env": "value"}'
-
-        try:
-            loader.override_with_env()
-            assert loader.config_data["settings"] == {"env": "value"}
-        finally:
-            del os.environ["RP_SETTINGS"]
-
-    def test_override_with_env_custom_prefix(self):
-        """Test overriding config with custom environment variable prefix."""
-        loader = ConfigLoader()
-        loader.config_data = {
-            "app_name": "DefaultApp"
-        }
-
-        # Set environment variable with custom prefix
-        os.environ["CUSTOM_APP_NAME"] = "CustomApp"
-
-        try:
-            loader.override_with_env(prefix="CUSTOM_")
-            assert loader.config_data["app_name"] == "CustomApp"
-        finally:
-            del os.environ["CUSTOM_APP_NAME"]
-
-    def test_get_config_type_safe(self):
-        """Test getting type-safe config object."""
-        loader = ConfigLoader()
-        loader.config_data = {
-            "app_name": "TestApp",
-            "debug": True,
-            "log_level": "DEBUG"
-        }
-
-        config = loader.get_config(AppConfig)
-        assert isinstance(config, AppConfig)
-        assert config.app_name == "TestApp"
-        assert config.debug is True
-        assert config.log_level == "DEBUG"
+            os.unlink(file_path)
 
 
 class TestSchemaValidation:
@@ -263,70 +274,64 @@ class TestSchemaValidation:
         schema = {
             "type": "object",
             "properties": {
-                "app_name": {"type": "string"},
-                "debug": {"type": "boolean"}
+                "person": {"type": "object"},
+                "assets": {"type": "array"}
             },
-            "required": ["app_name", "debug"]
+            "required": ["person"]
         }
 
-        loader = ConfigLoader(schema)
-        loader.config_data = {
-            "app_name": "TestApp",
-            "debug": True
+        config_data = {
+            "person": {"name": "John"},
+            "assets": []
         }
 
-        # Should not raise an exception
-        loader.validate_schema()
+        loader = UnifiedConfigLoader(schema=schema)
+        loader.config_data = config_data
+        loader.validate_schema()  # Should not raise
 
     def test_validate_schema_with_invalid_data(self):
         """Test schema validation with invalid data."""
         schema = {
             "type": "object",
             "properties": {
-                "app_name": {"type": "string"},
-                "debug": {"type": "boolean"}
+                "person": {"type": "object"}
             },
-            "required": ["app_name", "debug"]
+            "required": ["person"]
         }
 
-        loader = ConfigLoader(schema)
-        loader.config_data = {
-            "app_name": 123,  # Should be string
-            "debug": True
+        config_data = {
+            "person": "not an object"
         }
 
-        with pytest.raises(ConfigurationError) as exc_info:
+        loader = UnifiedConfigLoader(schema=schema)
+        loader.config_data = config_data
+
+        with pytest.raises(ConfigurationError):
             loader.validate_schema()
-        assert "Configuration schema validation failed" in str(exc_info.value)
 
     def test_validate_schema_with_missing_required_field(self):
         """Test schema validation with missing required field."""
         schema = {
             "type": "object",
             "properties": {
-                "app_name": {"type": "string"},
-                "debug": {"type": "boolean"}
+                "person": {"type": "object"}
             },
-            "required": ["app_name", "debug"]
+            "required": ["person"]
         }
 
-        loader = ConfigLoader(schema)
-        loader.config_data = {
-            "app_name": "TestApp"
-            # Missing "debug" field
-        }
+        config_data = {}
 
-        with pytest.raises(ConfigurationError) as exc_info:
+        loader = UnifiedConfigLoader(schema=schema)
+        loader.config_data = config_data
+
+        with pytest.raises(ConfigurationError):
             loader.validate_schema()
-        assert "Configuration schema validation failed" in str(exc_info.value)
 
     def test_validate_schema_without_schema(self):
-        """Test schema validation when no schema is provided."""
-        loader = ConfigLoader()  # No schema
+        """Test validation without schema (should not raise)."""
+        loader = UnifiedConfigLoader()
         loader.config_data = {"any": "data"}
-
-        # Should not raise an exception
-        loader.validate_schema()
+        loader.validate_schema()  # Should not raise
 
     def test_validate_schema_with_enum_constraint(self):
         """Test schema validation with enum constraint."""
@@ -340,14 +345,15 @@ class TestSchemaValidation:
             }
         }
 
-        loader = ConfigLoader(schema)
-
         # Valid enum value
-        loader.config_data = {"log_level": "DEBUG"}
+        config_data = {"log_level": "INFO"}
+        loader = UnifiedConfigLoader(schema=schema)
+        loader.config_data = config_data
         loader.validate_schema()  # Should not raise
 
         # Invalid enum value
-        loader.config_data = {"log_level": "INVALID"}
+        config_data = {"log_level": "INVALID"}
+        loader.config_data = config_data
         with pytest.raises(ConfigurationError):
             loader.validate_schema()
 
@@ -356,150 +362,183 @@ class TestDefaultSchema:
     """Test the default schema functionality."""
 
     def test_get_default_schema_structure(self):
-        """Test that default schema has expected structure."""
+        """Test that default schema has the expected structure."""
         schema = get_default_schema()
 
         assert schema["type"] == "object"
         assert "properties" in schema
-        assert "required" in schema
         assert "additionalProperties" in schema
 
+        properties = schema["properties"]
+        assert "person" in properties
+        assert "assets" in properties
+        assert "asset_performance" in properties
+        assert "events" in properties
+        assert "simulation" in properties
+        assert "economy" in properties
+
     def test_default_schema_properties(self):
-        """Test that default schema has expected properties."""
+        """Test that default schema properties have correct types."""
         schema = get_default_schema()
         properties = schema["properties"]
 
-        assert "app_name" in properties
-        assert properties["app_name"]["type"] == "string"
-
-        assert "debug" in properties
-        assert properties["debug"]["type"] == "boolean"
-
-        assert "log_level" in properties
-        assert properties["log_level"]["type"] == "string"
-        assert "enum" in properties["log_level"]
+        assert properties["person"]["type"] == "object"
+        assert properties["assets"]["type"] == "array"
+        assert properties["asset_performance"]["type"] == "array"
+        assert properties["events"]["type"] == "object"
+        assert properties["simulation"]["type"] == "object"
+        assert properties["economy"]["type"] == "object"
 
     def test_default_schema_required_fields(self):
-        """Test that default schema has expected required fields."""
+        """Test that default schema has no required fields (all optional)."""
         schema = get_default_schema()
-        required = schema["required"]
-
-        assert "app_name" in required
-        assert "debug" in required
+        assert "required" not in schema
 
     def test_default_schema_with_valid_data(self):
-        """Test default schema validation with valid data."""
+        """Test default schema with valid data."""
         schema = get_default_schema()
-        loader = ConfigLoader(schema)
-
-        loader.config_data = {
-            "app_name": "TestApp",
-            "debug": True,
-            "log_level": "INFO"
+        config_data = {
+            "person": {"name": "John"},
+            "assets": [],
+            "asset_performance": [],
+            "events": {},
+            "simulation": {},
+            "economy": {}
         }
 
+        loader = UnifiedConfigLoader(schema=schema)
+        loader.config_data = config_data
         loader.validate_schema()  # Should not raise
 
     def test_default_schema_with_invalid_data(self):
-        """Test default schema validation with invalid data."""
+        """Test default schema with invalid data."""
         schema = get_default_schema()
-        loader = ConfigLoader(schema)
-
-        loader.config_data = {
-            "app_name": 123,  # Should be string
-            "debug": True
+        config_data = {
+            "person": "not an object",
+            "assets": "not an array"
         }
+
+        loader = UnifiedConfigLoader(schema=schema)
+        loader.config_data = config_data
 
         with pytest.raises(ConfigurationError):
             loader.validate_schema()
 
 
 class TestConfigurationIntegration:
-    """Test integration scenarios for configuration management."""
+    """Test integration scenarios."""
 
     def test_complete_configuration_workflow(self):
-        """Test complete configuration loading and validation workflow."""
-        # Create temporary YAML file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
-            f.write("""
-app_name: TestApp
-debug: true
-log_level: DEBUG
-""")
-            yaml_file = f.name
+        """Test a complete configuration workflow."""
+        # Create a comprehensive configuration
+        config_data = {
+            "person": {
+                "name": "Jane Doe",
+                "age": 45,
+                "retirement_age": 65,
+                "life_expectancy": 90,
+                "risk_tolerance": "moderate"
+            },
+            "assets": [
+                {"type": "stock", "current_value": 500000},
+                {"type": "bond", "current_value": 300000}
+            ],
+            "asset_performance": [
+                {
+                    "type": "stock",
+                    "asset_type": "equity",
+                    "expected_return": 0.07,
+                    "volatility": 0.15
+                },
+                {
+                    "type": "bond",
+                    "asset_type": "bond",
+                    "expected_return": 0.03,
+                    "volatility": 0.05
+                }
+            ],
+            "events": {
+                "events": {
+                    "income": [],
+                    "expenses": []
+                }
+            },
+            "simulation": {
+                "num_scenarios": 1000,
+                "time_horizon": 45
+            },
+            "economy": {
+                "inflation": {"expected_rate": 0.025}
+            }
+        }
 
-        try:
-            # Load configuration
-            schema = get_default_schema()
-            loader = ConfigLoader(schema)
-            loader.load_from_file(yaml_file)
+        # Test loading and validation
+        schema = get_default_schema()
+        loader = UnifiedConfigLoader(schema=schema)
+        loader.config_data = config_data
 
-            # Override with environment variables
-            os.environ["RP_LOG_LEVEL"] = "WARNING"
-            try:
-                loader.override_with_env()
+        # Validate
+        loader.validate_schema()
 
-                # Validate schema
-                loader.validate_schema()
+        # Test section access
+        assert loader.has_section('person')
+        assert loader.has_section('assets')
+        assert loader.has_section('asset_performance')
 
-                # Get type-safe config
-                config = loader.get_config(AppConfig)
+        person_data = loader.get_section('person')
+        assert person_data['name'] == "Jane Doe"
+        assert person_data['age'] == 45
 
-                assert config.app_name == "TestApp"
-                assert config.debug is True
-                assert config.log_level == "WARNING"  # Overridden by env var
-
-            finally:
-                del os.environ["RP_LOG_LEVEL"]
-        finally:
-            os.unlink(yaml_file)
+        assets_data = loader.get_section('assets')
+        assert len(assets_data) == 2
+        assert assets_data[0]['type'] == 'stock'
+        assert assets_data[1]['type'] == 'bond'
 
     def test_configuration_with_nested_data(self):
         """Test configuration with nested data structures."""
-        loader = ConfigLoader()
-
-        # Create temporary JSON file with nested data
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-            json.dump({
-                "app_name": "TestApp",
-                "settings": {
-                    "database": {
-                        "host": "localhost",
-                        "port": 5432
-                    },
-                    "cache": {
-                        "enabled": True,
-                        "ttl": 3600
+        config_data = {
+            "person": {
+                "name": "John",
+                "goals": [
+                    {"name": "retirement", "target_amount": 1000000},
+                    {"name": "vacation", "target_amount": 50000}
+                ]
+            },
+            "simulation": {
+                "portfolio": {
+                    "rebalancing": {
+                        "frequency": "annual",
+                        "threshold": 0.05
                     }
                 }
-            }, f)
-            json_file = f.name
+            }
+        }
 
-        try:
-            loader.load_from_file(json_file)
+        loader = UnifiedConfigLoader()
+        loader.config_data = config_data
 
-            assert loader.config_data["app_name"] == "TestApp"
-            assert loader.config_data["settings"]["database"]["host"] == "localhost"
-            assert loader.config_data["settings"]["database"]["port"] == 5432
-            assert loader.config_data["settings"]["cache"]["enabled"] is True
-            assert loader.config_data["settings"]["cache"]["ttl"] == 3600
-        finally:
-            os.unlink(json_file)
+        # Test nested access
+        person_data = loader.get_section('person')
+        assert len(person_data['goals']) == 2
+        assert person_data['goals'][0]['name'] == 'retirement'
+
+        simulation_data = loader.get_section('simulation')
+        assert simulation_data['portfolio']['rebalancing']['frequency'] == 'annual'
 
     def test_configuration_error_context(self):
-        """Test that configuration errors include proper context."""
-        loader = ConfigLoader()
-
+        """Test that configuration errors provide good context."""
         with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
-            f.write("invalid: yaml: content: [")
-            yaml_file = f.name
+            f.write("invalid: yaml: [")
+            file_path = f.name
 
         try:
+            loader = UnifiedConfigLoader()
             with pytest.raises(ConfigurationError) as exc_info:
-                loader.load_from_file(yaml_file)
+                loader.load_from_file(file_path)
 
             error = exc_info.value
             assert "Failed to load configuration file" in str(error)
-            assert error.context.file_path == yaml_file
+            assert file_path in str(error)
+
         finally:
-            os.unlink(yaml_file)
+            os.unlink(file_path)

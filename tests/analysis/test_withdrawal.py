@@ -47,11 +47,9 @@ def assets():
 @pytest.fixture
 def portfolio(assets):
     allocation = AssetAllocation({'StockA': 0.6, 'BondB': 0.4})
-    asset_values = {'StockA': 60000, 'BondB': 30000}
     return Portfolio(
-        assets=assets,
-        allocation=allocation,
-        asset_values=asset_values,
+        assets=list(assets.values()),
+        allocation_targets=allocation,
         rebalancing_strategy=StaticRebalancingStrategy()
     )
 

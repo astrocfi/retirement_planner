@@ -1,0 +1,61 @@
+# Unified Configuration for Simple Retirement Example
+# This file combines person, assets, asset_performance, events, simulation, and economy sections
+
+# Person Section
+person:
+  name: "Simple Retiree"
+  age: 65
+  retirement_age: 65
+  life_expectancy: 95
+  risk_tolerance: "moderate"
+  tax_filing_status: "single"
+  state_of_residence: "CA"
+  goals:
+    - name: "Don't run out of money"
+      goal_type: "min_portfolio_value"
+      target_amount: 1
+      target_age: 95
+      priority: "essential"
+      description: "Ensure the portfolio never depletes to zero during retirement."
+
+# Assets Section (simplified - only type and current value)
+assets:
+  - type: "simple_portfolio"
+    current_value: 1000000.0
+    notes: "Simple all-stock portfolio"
+
+# Asset Performance Section (detailed characteristics)
+asset_performance:
+  - type: "simple_portfolio"
+    asset_type: "equity"
+    expected_return: 0.07
+    volatility: .1
+    correlation: {}
+
+# Events Section
+events:
+  income: []
+  expenses:
+    - name: "retirement_expenses"
+      event_type: "expense"
+      period:
+        start_age: 65
+        end_age: 95
+        description: "Retirement living expenses"
+      amount: 80000.0
+      probability: 1.0
+      description: "Annual retirement expenses (today's dollars)"
+  assets: []
+  liabilities: []
+  benefits: []
+
+# Simulation Section
+simulation:
+  num_scenarios: 1000
+  time_horizon: 30
+
+# Economy Section
+economy:
+  inflation:
+    expected_rate: 0.025
+    volatility: 0.01

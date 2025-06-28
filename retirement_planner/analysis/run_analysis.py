@@ -3,7 +3,7 @@
 Generic retirement analysis runner with subcommands.
 
 This script provides a command-line interface to run retirement analysis
-using configuration files provided by the user.
+using unified configuration files with section merging.
 
 Subcommands:
   validate   Validate configuration files
@@ -16,27 +16,14 @@ import sys
 import argparse
 from pathlib import Path
 from datetime import datetime
+import numpy as np
 
 def add_common_arguments(parser):
     parser.add_argument(
-        "--person-profile",
+        "--config",
         required=True,
-        help="Path to person profile configuration file"
-    )
-    parser.add_argument(
-        "--events",
-        required=True,
-        help="Path to events configuration file"
-    )
-    parser.add_argument(
-        "--market-data",
-        required=True,
-        help="Path to market data configuration file"
-    )
-    parser.add_argument(
-        "--simulation-config",
-        required=True,
-        help="Path to simulation configuration file"
+        nargs='+',
+        help="Path to one or more configuration files (later files override earlier ones)"
     )
     parser.add_argument(
         "--output-dir",
@@ -51,24 +38,64 @@ def add_common_arguments(parser):
 
 def validate_configs(args):
     """Validate all configuration files and print errors/warnings."""
-    from retirement_planner.core.config import ConfigLoader
+    from retirement_planner.core.config import UnifiedConfigLoader
     from retirement_planner.core.logging import RetirementPlannerLogger, LogLevel
+
     logger = RetirementPlannerLogger(log_level=LogLevel.INFO if args.verbose else LogLevel.WARNING)
     success = True
-    for name, path in [
-        ("Person profile", args.person_profile),
-        ("Events", args.events),
-        ("Market data", args.market_data),
-        ("Simulation config", args.simulation_config),
-    ]:
-        logger.log(LogLevel.INFO, f"Validating {name} file: {path}")
-        loader = ConfigLoader()
-        try:
-            loader.load_from_file(path)
-            logger.log(LogLevel.SUCCESS, f"{name} file loaded and validated successfully.")
-        except Exception as e:
-            logger.log(LogLevel.ERROR, f"{name} file validation failed: {e}")
-            success = False
+
+    try:
+        logger.log(LogLevel.INFO, f"Validating configuration files: {', '.join(args.config)}")
+        loader = UnifiedConfigLoader()
+        loader.load_from_files(args.config)
+
+        required_sections = ['person', 'assets', 'asset_performance', 'events', 'simulation']
+        for section in required_sections:
+            if loader.has_section(section):
+                logger.log(LogLevel.SUCCESS, f"Section '{section}' found and validated.")
+            else:
+                logger.log(LogLevel.ERROR, f"Required section '{section}' not found in configuration.")
+                success = False
+
+        if loader.has_section('person'):
+            person_data = loader.get_section('person')
+            required_person_fields = ['name', 'age', 'retirement_age', 'life_expectancy', 'risk_tolerance']
+            for field in required_person_fields:
+                if field not in person_data:
+                    logger.log(LogLevel.ERROR, f"Required person field '{field}' not found.")
+                    success = False
+
+        if loader.has_section('assets'):
+            assets_data = loader.get_section('assets')
+            if not isinstance(assets_data, list):
+                logger.log(LogLevel.ERROR, "Assets section must be a list.")
+                success = False
+            else:
+                for i, asset in enumerate(assets_data):
+                    if not isinstance(asset, dict) or 'type' not in asset or 'current_value' not in asset:
+                        logger.log(LogLevel.ERROR, f"Asset {i} must have 'type' and 'current_value' fields.")
+                        success = False
+
+        if loader.has_section('asset_performance'):
+            perf_data = loader.get_section('asset_performance')
+            if not isinstance(perf_data, list):
+                logger.log(LogLevel.ERROR, "Asset performance section must be a list.")
+                success = False
+            else:
+                for i, perf in enumerate(perf_data):
+                    if not isinstance(perf, dict) or 'type' not in perf:
+                        logger.log(LogLevel.ERROR, f"Asset performance {i} must have 'type' field.")
+                        success = False
+
+        if success:
+            logger.log(LogLevel.SUCCESS, "All configuration files validated successfully.")
+        else:
+            logger.log(LogLevel.ERROR, "Configuration validation failed.")
+
+    except Exception as e:
+        logger.log(LogLevel.ERROR, f"Configuration validation failed: {e}")
+        success = False
+
     if not success:
         print("\nValidation failed. Please fix the above errors.")
         sys.exit(1)
@@ -77,8 +104,7 @@ def validate_configs(args):
 def analyze(args):
     """Run the complete retirement analysis with simulation and reporting."""
     output_dir = Path(args.output_dir)
-    output_dir.mkdir(exist_ok=True)
-    # Generate timestamp ONCE for all outputs
+    output_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     print("=" * 60)
     print("RETIREMENT PLANNER ANALYSIS")
@@ -87,7 +113,7 @@ def analyze(args):
     print()
 
     try:
-        from retirement_planner.core.config import ConfigLoader
+        from retirement_planner.core.config import UnifiedConfigLoader
         from retirement_planner.core.logging import RetirementPlannerLogger, LogLevel
         from retirement_planner.models.person import Person, Goal
         from retirement_planner.models.events import EventManager, Event, EventType, Period
@@ -102,48 +128,112 @@ def analyze(args):
         logger = RetirementPlannerLogger(log_level=LogLevel.INFO if args.verbose else LogLevel.WARNING)
         logger.log(LogLevel.INFO, "Starting comprehensive retirement analysis")
 
-        # Load person profile
+        logger.log(LogLevel.INFO, f"Loading configuration from: {', '.join(args.config)}")
+        config_loader = UnifiedConfigLoader()
+        config_loader.load_from_files(args.config)
+
+        # Set the random seed ONCE at the very start
+        simulation_data = config_loader.get_section('simulation')
+        random_seed = simulation_data.get("random_seed", 42)
+        np.random.seed(random_seed)
+
         logger.log(LogLevel.INFO, "Loading person profile...")
-        person_loader = ConfigLoader()
-        person_loader.load_from_file(args.person_profile)
-        person_data = person_loader.config_data
+        person_data = config_loader.get_section('person')
         person = Person(
             name=person_data["name"],
             age=person_data["age"],
             retirement_age=person_data["retirement_age"],
             life_expectancy=person_data["life_expectancy"],
             risk_tolerance=person_data["risk_tolerance"],
-            tax_filing_status=person_data["tax_filing_status"],
-            state_of_residence=person_data["state_of_residence"],
-            goals=[Goal(**goal) for goal in person_data["goals"]],
+            tax_filing_status=person_data.get("tax_filing_status", "single"),
+            state_of_residence=person_data.get("state_of_residence", "CA"),
+            goals=[Goal(**goal) for goal in person_data.get("goals", [])],
             additional_data=person_data.get("additional_data", {})
         )
         logger.log(LogLevel.INFO, f"Loaded person profile for {person.name}")
         logger.log(LogLevel.INFO, f"Current age: {person.age}, Retirement age: {person.retirement_age}")
 
-        # Load events
         logger.log(LogLevel.INFO, "Loading events configuration...")
-        events_loader = ConfigLoader()
-        events_loader.load_from_file(args.events)
-        events_data = events_loader.config_data
+        events_data = config_loader.get_section('events')
         event_manager = EventManager()
-        for category, events_list in events_data["events"].items():
-            for event_data in events_list:
-                period = Period(**event_data["period"])
-                event = Event(
-                    name=event_data["name"],
-                    event_type=EventType(event_data["event_type"]),
-                    period=period,
-                    amount=event_data["amount"],
-                    probability=event_data["probability"],
-                    inflation_adjustment=False,  # No inflation adjustment since we use real returns
-                    description=event_data["description"],
-                    metadata=event_data.get("metadata", {})
-                )
-                event_manager.add_event(event)
+
+        # Process income events
+        for event_data in events_data.get("income", []):
+            period = Period(**event_data["period"])
+            event = Event(
+                name=event_data["name"],
+                event_type=EventType(event_data["event_type"]),
+                period=period,
+                amount=event_data["amount"],
+                probability=event_data.get("probability", 1.0),
+                inflation_adjustment=False,
+                description=event_data.get("description", ""),
+                metadata=event_data.get("metadata", {})
+            )
+            event_manager.add_event(event)
+
+        # Process expense events
+        for event_data in events_data.get("expenses", []):
+            period = Period(**event_data["period"])
+            event = Event(
+                name=event_data["name"],
+                event_type=EventType(event_data["event_type"]),
+                period=period,
+                amount=event_data["amount"],
+                probability=event_data.get("probability", 1.0),
+                inflation_adjustment=False,
+                description=event_data.get("description", ""),
+                metadata=event_data.get("metadata", {})
+            )
+            event_manager.add_event(event)
+
+        # Process asset events
+        for event_data in events_data.get("assets", []):
+            period = Period(**event_data["period"])
+            event = Event(
+                name=event_data["name"],
+                event_type=EventType(event_data["event_type"]),
+                period=period,
+                amount=event_data["amount"],
+                probability=event_data.get("probability", 1.0),
+                inflation_adjustment=False,
+                description=event_data.get("description", ""),
+                metadata=event_data.get("metadata", {})
+            )
+            event_manager.add_event(event)
+
+        # Process liability events
+        for event_data in events_data.get("liabilities", []):
+            period = Period(**event_data["period"])
+            event = Event(
+                name=event_data["name"],
+                event_type=EventType(event_data["event_type"]),
+                period=period,
+                amount=event_data["amount"],
+                probability=event_data.get("probability", 1.0),
+                inflation_adjustment=False,
+                description=event_data.get("description", ""),
+                metadata=event_data.get("metadata", {})
+            )
+            event_manager.add_event(event)
+
+        # Process benefit events
+        for event_data in events_data.get("benefits", []):
+            period = Period(**event_data["period"])
+            event = Event(
+                name=event_data["name"],
+                event_type=EventType(event_data["event_type"]),
+                period=period,
+                amount=event_data["amount"],
+                probability=event_data.get("probability", 1.0),
+                inflation_adjustment=False,
+                description=event_data.get("description", ""),
+                metadata=event_data.get("metadata", {})
+            )
+            event_manager.add_event(event)
+
         logger.log(LogLevel.INFO, f"Loaded {len(event_manager.events)} events (all in today's dollars)")
 
-        # Extract initial portfolio value from events
         initial_portfolio_event = None
         for event in event_manager.events:
             if event.name == "initial_portfolio":
@@ -153,342 +243,188 @@ def analyze(args):
         if initial_portfolio_event:
             logger.log(LogLevel.INFO, f"Initial portfolio value: ${initial_portfolio_event.amount:,.0f}")
 
-        # Load market data and create portfolio
-        logger.log(LogLevel.INFO, "Loading market data and creating portfolio...")
-        market_loader = ConfigLoader()
-        market_loader.load_from_file(args.market_data)
-        market_data = market_loader.config_data
+        logger.log(LogLevel.INFO, "Loading asset performance data and creating assets...")
+        assets_data = config_loader.get_section('assets')
+        asset_performance_data = config_loader.get_section('asset_performance')
 
-        # Get inflation rate from market data
-        inflation_rate = market_data.get("inflation", {}).get("expected_rate", 0.025)
-        logger.log(LogLevel.INFO, f"Inflation rate: {inflation_rate:.1%}")
+        performance_lookup = {perf['type']: perf for perf in asset_performance_data}
 
-        # Create assets using factory - handle both formats
         asset_factory = AssetFactory()
         assets = []
+        total_portfolio_value = 0
 
-        # Check if we have individual asset configurations or need to create from allocation
-        if "assets" in market_data:
-            # Individual asset configurations provided
-            for asset_config in market_data["assets"]:
-                asset = asset_factory.create_from_dict(asset_config)
-                assets.append(asset)
-        else:
-            # Create assets from allocation percentages
-            allocation = market_data["portfolio_allocation"]
-            expected_returns = market_data["expected_returns"]
-            volatilities = market_data["volatility"]
+        for asset_data in assets_data:
+            asset_type = asset_data['type']
+            current_value = asset_data['current_value']
+            total_portfolio_value += current_value
 
-            # Create basic assets from allocation
-            for asset_type, weight in allocation.items():
-                if weight > 0:
-                    asset_config = {
-                        "name": f"{asset_type.title()} Asset",
-                        "asset_type": asset_type,
-                        "current_value": initial_portfolio_event.amount * weight if initial_portfolio_event else 0,
-                        "expected_return": expected_returns[asset_type],
-                        "volatility": volatilities[asset_type],
-                        "correlation": {},
-                        "description": f"{asset_type.title()} allocation"
-                    }
-                    asset = asset_factory.create_from_dict(asset_config)
-                    assets.append(asset)
+            if asset_type not in performance_lookup:
+                raise ValueError(f"Asset type '{asset_type}' not found in asset_performance section")
 
-        # Create portfolio with asset allocation
-        if "portfolio_allocation" in market_data:
-            allocation_data = market_data["portfolio_allocation"]
-            # Convert allocation percentages to target weights
-            target_weights = list(allocation_data.values())
-            current_values = [asset.current_value for asset in assets]
+            perf_data = performance_lookup[asset_type]
 
-            # Create asset dictionaries for portfolio
-            assets_dict = {asset.name: asset for asset in assets}
-            asset_values_dict = {asset.name: asset.current_value for asset in assets}
+            asset_config = {
+                "name": asset_type,
+                "asset_type": perf_data["asset_type"],
+                "current_value": current_value,
+                "expected_return": perf_data["expected_return"],
+                "volatility": perf_data["volatility"],
+                "correlation": perf_data.get("correlation", {}),
+                "description": perf_data.get("description", ""),
+                "metadata": {**perf_data, "notes": asset_data.get("notes", "")}
+            }
 
-            # Create allocation using the asset names, not the YAML keys
-            asset_allocation = {asset.name: allocation_data[asset_type] for asset_type, asset in zip(allocation_data.keys(), assets)}
-            allocation = AssetAllocation(allocation=asset_allocation)
-        else:
-            # Use equal weights if no allocation specified
-            target_weights = [1.0 / len(assets)] * len(assets)
-            current_values = [asset.current_value for asset in assets]
+            asset = asset_factory.create_from_dict(asset_config)
+            assets.append(asset)
 
-            # Create asset dictionaries for portfolio
-            assets_dict = {asset.name: asset for asset in assets}
-            asset_values_dict = {asset.name: asset.current_value for asset in assets}
+        logger.log(LogLevel.INFO, f"Created {len(assets)} assets with total value: ${total_portfolio_value:,.0f}")
 
-            # Create equal allocation
-            equal_allocation = {asset.name: 1.0 / len(assets) for asset in assets}
-            allocation = AssetAllocation(allocation=equal_allocation)
+        economy_data = config_loader.get_section('economy')
+        inflation_rate = economy_data.get("inflation", {}).get("expected_rate", 0.025)
+        logger.log(LogLevel.INFO, f"Inflation rate: {inflation_rate:.1%}")
 
+        allocation_data = {}
+        for asset in assets:
+            allocation_data[asset.name] = asset.current_value / total_portfolio_value
+
+        allocation = AssetAllocation(allocation_data)
         portfolio = Portfolio(
-            assets=assets_dict,
-            allocation=allocation,
-            asset_values=asset_values_dict,
+            assets=assets,
+            allocation_targets=allocation,
             rebalancing_strategy=StaticRebalancingStrategy()
         )
+        logger.log(LogLevel.INFO, f"Created portfolio with allocation: {allocation_data}")
 
-        logger.log(LogLevel.INFO, f"Created portfolio with {len(assets)} assets")
-        logger.log(LogLevel.INFO, f"Portfolio value: ${portfolio.total_value:,.0f}")
-        logger.log(LogLevel.INFO, f"Portfolio asset names: {list(portfolio.assets.keys())}")
-        logger.log(LogLevel.INFO, f"Portfolio asset values keys: {list(portfolio.asset_values.keys())}")
-
-        # Load simulation configuration
         logger.log(LogLevel.INFO, "Loading simulation configuration...")
-        sim_loader = ConfigLoader()
-        sim_loader.load_from_file(args.simulation_config)
-        sim_data = sim_loader.config_data
+        simulation_data = config_loader.get_section('simulation')
 
-        # Create market model - handle both formats
-        if "expected_returns" in market_data and "volatility" in market_data:
-            # Use the allocation-based format
-            expected_returns = list(market_data["expected_returns"].values())
-            volatilities = list(market_data["volatility"].values())
-            correlation_matrix = market_data["correlation_matrix"]
-        else:
-            # Use asset-specific format
-            expected_returns = [asset.expected_return for asset in assets]
-            volatilities = [asset.volatility for asset in assets]
-            # Create identity correlation matrix
-            correlation_matrix = [[1.0 if i == j else 0.0 for j in range(len(assets))] for i in range(len(assets))]
+        scenario_generator = RandomScenarioGenerator(
+            time_horizon=simulation_data.get("time_horizon", 45),
+            random_seed=simulation_data.get("random_seed", 42)
+        )
 
-        # Create correlation model
-        correlation_model = CorrelationModel(correlation_matrix=correlation_matrix)
+        correlation_matrix = {}
+        for perf in asset_performance_data:
+            if "correlation" in perf and perf["correlation"]:
+                correlation_matrix[perf["type"]] = perf["correlation"]
+        correlation_model = CorrelationModel(correlation_matrix)
 
         market_model = CorrelatedMarketModel(
             correlation_model=correlation_model,
-            seed=sim_data["simulation"].get("seed", None)
+            seed=simulation_data.get("random_seed", 42)
         )
 
-        # Run Monte Carlo simulation
-        logger.log(LogLevel.INFO, "Running Monte Carlo simulation...")
-        logger.log(LogLevel.INFO, f"Scenarios: {sim_data['simulation']['num_scenarios']:,}")
-        logger.log(LogLevel.INFO, f"Time horizon: {sim_data['simulation']['time_horizon']} years")
+        market_simulator = MarketSimulator(market_model)
 
-        scenario_generator = RandomScenarioGenerator(
-            seed=sim_data["simulation"].get("seed", None)
-        )
-
-        market_simulator = MarketSimulator(
-            correlation_matrix=correlation_matrix
-        )
-
-        simulation_engine = MonteCarloEngine(
+        engine = MonteCarloEngine(
             scenario_generator=scenario_generator,
             market_simulator=market_simulator,
-            logger=logger
+            num_scenarios=simulation_data.get("num_scenarios", 10000)
         )
 
-        # Prepare cash flows from events
-        time_horizon = sim_data["simulation"]["time_horizon"]
-        withdrawals = []
-        contributions = []
-        start_age = person.age
-        cash_flow_details = []  # For reporting
-        for year in range(time_horizon):
-            age = start_age + year
-            context = {"year": year, "age": age}
-            event_results = event_manager.process_events_at_age(age, context)
-            net_cash_flow = (
-                event_results['income'] + event_results['benefits'] + event_results['assets']
-                - event_results['expenses'] - event_results['liabilities'] - event_results['tax_impact']
-            )
-            if net_cash_flow >= 0:
-                contributions.append(net_cash_flow)
-                withdrawals.append(0.0)
-            else:
-                contributions.append(0.0)
-                withdrawals.append(-net_cash_flow)
-            cash_flow_details.append({
-                'year': year,
-                'age': age,
-                'income': event_results['income'] + event_results['benefits'],
-                'expense': event_results['expenses']
-            })
-        logger.log(LogLevel.INFO, f"Contributions by year: {contributions}")
-        logger.log(LogLevel.INFO, f"Withdrawals by year: {withdrawals}")
+        logger.log(LogLevel.INFO, f"Created Monte Carlo engine with {simulation_data.get('num_scenarios', 10000)} scenarios")
 
-        # Print cash flow report
-        report_lines = []
-        report_lines.append("CASH FLOW REPORT (from events)")
-        report_lines.append("Year | Age |   Income   |  Expense  ")
-        report_lines.append("-----------------------------------")
-        for row in cash_flow_details:
-            report_lines.append(f"{row['year']:4d} | {row['age']:3d} | {row['income']:10,.0f} | {row['expense']:9,.0f}")
-        report_lines.append("-----------------------------------\n")
-        report_text = "\n".join(report_lines)
-        print("\n" + report_text)
-        # Use the same timestamp for all outputs
-        cash_flow_report_path = output_dir / f"cash_flow_report_{timestamp}.txt"
-        with open(cash_flow_report_path, "w") as f:
-            f.write(report_text)
-        logger.log(LogLevel.INFO, f"Cash flow report written to {cash_flow_report_path}")
+        logger.log(LogLevel.INFO, "Running Monte Carlo simulation...")
+        simulation_result = engine.run_simulation(portfolio, person.get_working_years() + person.get_retirement_years(), event_manager, person)
+        logger.log(LogLevel.SUCCESS, f"Simulation completed with {len(simulation_result.scenarios)} successful scenarios")
 
-        simulation_result = simulation_engine.run_simulation(
-            portfolio=portfolio,
-            num_scenarios=sim_data["simulation"]["num_scenarios"],
-            time_horizon=time_horizon,
-            withdrawals=withdrawals,
-            contributions=contributions,
-            inflation_rate=inflation_rate
-        )
-
-        logger.log(LogLevel.SUCCESS, f"Simulation completed. Success rate: {simulation_result.success_rate:.1f}%")
-
-        # Run retirement analysis
         logger.log(LogLevel.INFO, "Running retirement analysis...")
-        retirement_analyzer = RetirementAnalyzer(logger=logger)
-        retirement_analysis = retirement_analyzer.analyze_retirement(
+        analyzer = RetirementAnalyzer()
+        analysis_result = analyzer.analyze_retirement(
             person=person,
             portfolio=portfolio,
             simulation_result=simulation_result
         )
+        logger.log(LogLevel.SUCCESS, f"Analysis completed. Success rate: {analysis_result.overall_success_rate:.1%}")
 
-        logger.log(LogLevel.SUCCESS, f"Analysis completed. Overall success rate: {retirement_analysis.overall_success_rate:.1f}%")
-
-        # Run withdrawal strategy optimization
-        logger.log(LogLevel.INFO, "Optimizing withdrawal strategies...")
-        withdrawal_optimizer = WithdrawalOptimizer(logger=logger)
-        withdrawal_result = withdrawal_optimizer.optimize_withdrawal_rate(
+        logger.log(LogLevel.INFO, "Running withdrawal optimization...")
+        optimizer = WithdrawalOptimizer()
+        withdrawal_result = optimizer.optimize_withdrawal_rate(
             portfolio=portfolio,
-            simulation_result=simulation_result,
-            strategy_type="percentage",
-            min_rate=0.02,
-            max_rate=0.08,
-            step_size=0.001
+            simulation_result=simulation_result
         )
-
         logger.log(LogLevel.SUCCESS, f"Withdrawal optimization completed. Optimal rate: {withdrawal_result.optimal_withdrawal_rate:.1%}")
 
-        # Generate comprehensive report
-        logger.log(LogLevel.INFO, "Generating comprehensive report...")
+        logger.log(LogLevel.INFO, "Generating reports...")
         report_config = ReportConfig(
-            output_format="text",
+            output_format="html",
             include_charts=True,
-            chart_format="png",
             include_raw_data=True
         )
 
-        report_generator = ReportGenerator(config=report_config, logger=logger)
-        report_files = report_generator.generate_comprehensive_report(
-            retirement_analysis=retirement_analysis,
+        report_generator = ReportGenerator(report_config)
+        report_result = report_generator.generate_comprehensive_report(
+            retirement_analysis=analysis_result,
             simulation_result=simulation_result,
             withdrawal_result=withdrawal_result,
             output_dir=output_dir,
             timestamp=timestamp
         )
 
-        # Print summary
-        print("\n" + "=" * 60)
-        print("ANALYSIS SUMMARY")
-        print("=" * 60)
-        print(f"Person: {person.name}")
-        print(f"Working years remaining: {person.get_working_years()}")
-        print(f"Retirement years: {person.get_retirement_years()}")
-        print(f"Portfolio value: ${portfolio.total_value:,.0f}")
-        print(f"Simulation scenarios: {len(simulation_result.scenarios):,}")
-        print(f"Overall success rate: {retirement_analysis.overall_success_rate:.1f}%")
-        print(f"Optimal withdrawal rate: {withdrawal_result.optimal_withdrawal_rate:.1%}")
-        print(f"Optimal annual withdrawal: ${withdrawal_result.optimal_annual_withdrawal:,.0f}")
-        print(f"Output directory: {output_dir.absolute()}")
-        print("=" * 60)
+        logger.log(LogLevel.SUCCESS, f"Reports generated successfully in {output_dir}")
+        logger.log(LogLevel.INFO, f"Report files: {list(report_result.values())}")
 
-        logger.log(LogLevel.SUCCESS, "Comprehensive analysis completed successfully")
+        print("\n" + "=" * 60)
+        print("ANALYSIS COMPLETE")
+        print("=" * 60)
+        print(f"Success Rate: {analysis_result.overall_success_rate:.1%}")
+        print(f"Optimal Withdrawal Rate: {withdrawal_result.optimal_withdrawal_rate:.1%}")
+        print(f"Optimal Annual Withdrawal: ${withdrawal_result.optimal_annual_withdrawal:,.0f}")
+        print(f"Reports saved to: {output_dir}")
+        print("=" * 60)
 
     except Exception as e:
-        print(f"Error during analysis: {e}")
+        print(f"\nAnalysis failed: {e}")
         if args.verbose:
             import traceback
             traceback.print_exc()
         sys.exit(1)
 
 def report(args):
-    """Generate reports from existing analysis results."""
-    print("Report generation from existing results is not yet implemented.")
-    print("Use the 'analyze' command to run a complete analysis with reporting.")
-    sys.exit(0)
+    print("Report generation from existing results not yet implemented.")
+    sys.exit(1)
 
 def simulate(args):
-    """Run Monte Carlo simulation only."""
-    output_dir = Path(args.output_dir)
-    output_dir.mkdir(exist_ok=True)
-    print("=" * 60)
-    print("MONTE CARLO SIMULATION")
-    print("=" * 60)
-    print(f"Simulation started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print()
-
-    try:
-        from retirement_planner.core.config import ConfigLoader
-        from retirement_planner.core.logging import RetirementPlannerLogger
-        from retirement_planner.models.person import Person, Goal
-        from retirement_planner.models.events import EventManager, Event, EventType, Period
-        from retirement_planner.models.portfolio import Portfolio, AssetAllocation
-        from retirement_planner.assets.base import AssetFactory
-        from retirement_planner.simulation.engine import MonteCarloEngine, RandomScenarioGenerator, MarketSimulator
-        from retirement_planner.simulation.market import CorrelatedMarketModel
-        from retirement_planner.reports.generator import DataExporter
-
-        logger = RetirementPlannerLogger(level="INFO" if args.verbose else "WARNING")
-        logger.log("Starting Monte Carlo simulation", level="info")
-
-        # Load configurations (same as analyze function)
-        # ... (load person, events, market data, simulation config)
-
-        # Create portfolio and run simulation
-        # ... (create assets, portfolio, market model, run simulation)
-
-        # Export simulation data
-        data_exporter = DataExporter(logger=logger)
-        sim_data_path = output_dir / "simulation_data.csv"
-        data_exporter.export_simulation_data(
-            simulation_result=simulation_result,  # This would be from the simulation
-            output_path=sim_data_path,
-            format="csv"
-        )
-
-        print("\n" + "=" * 60)
-        print("SIMULATION SUMMARY")
-        print("=" * 60)
-        print(f"Simulation data exported to: {sim_data_path}")
-        print("=" * 60)
-
-        logger.log("Simulation completed successfully", level="success")
-
-    except Exception as e:
-        print(f"Error during simulation: {e}")
-        if args.verbose:
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+    print("Simulation-only mode not yet implemented.")
+    sys.exit(1)
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Retirement Planner CLI with subcommands"
+        description="Retirement Planner CLI with subcommands",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  %(prog)s validate --config config.yaml
+  %(prog)s validate --config base.yaml override.yaml
+  %(prog)s analyze --config config.yaml --output-dir results
+  %(prog)s analyze --config base.yaml override.yaml --verbose
+        """
     )
-    subparsers = parser.add_subparsers(dest="command", required=True, help="Subcommand to run")
 
-    # Validate subcommand
-    parser_validate = subparsers.add_parser("validate", help="Validate configuration files")
-    add_common_arguments(parser_validate)
-    parser_validate.set_defaults(func=validate_configs)
+    subparsers = parser.add_subparsers(dest='command', help='Subcommand to run')
 
-    # Analyze subcommand
-    parser_analyze = subparsers.add_parser("analyze", help="Run complete retirement analysis with simulation and reporting")
-    add_common_arguments(parser_analyze)
-    parser_analyze.set_defaults(func=analyze)
+    validate_parser = subparsers.add_parser('validate', help='Validate configuration files')
+    add_common_arguments(validate_parser)
+    validate_parser.set_defaults(func=validate_configs)
 
-    # Report subcommand
-    parser_report = subparsers.add_parser("report", help="Generate reports from existing analysis results")
-    add_common_arguments(parser_report)
-    parser_report.set_defaults(func=report)
+    analyze_parser = subparsers.add_parser('analyze', help='Run complete retirement analysis with simulation and reporting')
+    add_common_arguments(analyze_parser)
+    analyze_parser.set_defaults(func=analyze)
 
-    # Simulate subcommand
-    parser_simulate = subparsers.add_parser("simulate", help="Run Monte Carlo simulation only")
-    add_common_arguments(parser_simulate)
-    parser_simulate.set_defaults(func=simulate)
+    report_parser = subparsers.add_parser('report', help='Generate reports from existing analysis results')
+    add_common_arguments(report_parser)
+    report_parser.set_defaults(func=report)
+
+    simulate_parser = subparsers.add_parser('simulate', help='Run Monte Carlo simulation only')
+    add_common_arguments(simulate_parser)
+    simulate_parser.set_defaults(func=simulate)
 
     args = parser.parse_args()
+
+    if not args.command:
+        parser.print_help()
+        sys.exit(1)
+
     args.func(args)
 
 if __name__ == "__main__":

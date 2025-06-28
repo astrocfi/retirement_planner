@@ -101,7 +101,7 @@ class TestPerson:
 
     def test_person_validation_invalid_age_sequence(self):
         """Test person validation with invalid age sequence."""
-        with pytest.raises(ValidationError, match="Retirement age must be after current age"):
+        with pytest.raises(ValidationError, match="Retirement age must be at least current age"):
             Person(
                 name="Test Person",
                 age=65,

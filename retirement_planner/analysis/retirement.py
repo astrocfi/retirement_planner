@@ -64,6 +64,8 @@ class GoalTracker:
                 status = self._track_portfolio_value_goal(goal, simulation_result)
             elif goal.goal_type == "lifestyle":
                 status = self._track_withdrawal_rate_goal(goal, simulation_result)
+            elif goal.goal_type == "min_portfolio_value":
+                status = self._track_min_portfolio_value_goal(goal, simulation_result)
             else:
                 status = self._track_generic_goal(goal, simulation_result)
 
@@ -159,6 +161,32 @@ class GoalTracker:
                 shortfalls.append(0.0)
             else:
                 shortfalls.append(avg_withdrawal_rate - target_rate)
+
+        success_rate = achieved_scenarios / len(simulation_result.scenarios)
+        avg_shortfall = np.mean(shortfalls) if shortfalls else 0.0
+        worst_shortfall = np.max(shortfalls) if shortfalls else 0.0
+
+        return GoalStatus(
+            goal_name=goal.name,
+            achieved=success_rate >= 0.8,
+            success_rate=success_rate,
+            average_shortfall=avg_shortfall,
+            worst_case_shortfall=worst_shortfall
+        )
+
+    def _track_min_portfolio_value_goal(self, goal, simulation_result: SimulationResult) -> GoalStatus:
+        """Track minimum portfolio value goal (portfolio never depletes below threshold)."""
+        min_value = goal.target_amount
+        achieved_scenarios = 0
+        shortfalls = []
+
+        for scenario in simulation_result.scenarios:
+            min_portfolio = min(scenario.portfolio_values)
+            if min_portfolio >= min_value:
+                achieved_scenarios += 1
+                shortfalls.append(0.0)
+            else:
+                shortfalls.append(min_value - min_portfolio)
 
         success_rate = achieved_scenarios / len(simulation_result.scenarios)
         avg_shortfall = np.mean(shortfalls) if shortfalls else 0.0

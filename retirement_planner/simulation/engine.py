@@ -57,9 +57,8 @@ class ScenarioGenerator(ABC):
 class RandomScenarioGenerator(ScenarioGenerator):
     """Generates scenarios using random sampling."""
 
-    def __init__(self, seed: Optional[int] = None):
-        if seed is not None:
-            np.random.seed(seed)
+    def __init__(self, time_horizon: int = 45, random_seed: Optional[int] = None):
+        self.time_horizon = time_horizon
 
     def generate_scenarios(self, num_scenarios: int, time_horizon: int) -> List[Dict[str, Any]]:
         """Generate random scenarios."""
@@ -77,31 +76,15 @@ class RandomScenarioGenerator(ScenarioGenerator):
 class MarketSimulator:
     """Simulates market returns and portfolio evolution."""
 
-    def __init__(self, correlation_matrix: Optional[Dict[str, Dict[str, float]]] = None):
-        self.correlation_matrix = correlation_matrix or {}
+    def __init__(self, market_model):
+        self.market_model = market_model
         self.logger = RetirementPlannerLogger()
 
-    def simulate_returns(self, assets: Dict[str, Asset], num_years: int, inflation_rate: float = 0.025) -> Dict[str, List[float]]:
-        """Simulate real returns (nominal returns minus inflation) for all assets over the given time period."""
-        returns = {}
-
-        for asset_name, asset in assets.items():
-            # Use asset's expected return and volatility for simulation
-            nominal_return = asset.expected_return
-            volatility = asset.volatility
-
-            # Generate random nominal returns using normal distribution
-            # Annual returns are assumed to be normally distributed
-            nominal_returns = np.random.normal(nominal_return, volatility, num_years)
-
-            # Ensure returns are reasonable (not below -100%)
-            nominal_returns = np.maximum(nominal_returns, -0.99)
-
-            # Convert to real returns by subtracting inflation
-            real_returns = nominal_returns - inflation_rate
-
-            returns[asset_name] = real_returns.tolist()
-
+    def simulate_returns(self, assets: List[Asset], num_years: int) -> Dict[str, List[float]]:
+        """Simulate returns for all assets over the given time period."""
+        # Convert list of assets to dictionary for market model
+        assets_dict = {asset.name: asset for asset in assets}
+        returns = self.market_model.simulate_returns(assets_dict, num_years)
         return returns
 
     def simulate_portfolio_evolution(
@@ -126,6 +109,8 @@ class MarketSimulator:
 
         # Initialize tracking variables
         current_portfolio = portfolio
+        initial_value = current_portfolio.total_value
+        failure_threshold = initial_value * 0.01  # 1% of initial value
         portfolio_values = [current_portfolio.total_value]
         allocation_percentages = [current_portfolio.get_allocation_percentages()]
         scenario_returns = []
@@ -147,23 +132,27 @@ class MarketSimulator:
             scenario_returns.append(portfolio_return)
 
             # Update portfolio values based on returns
-            new_asset_values = {}
-            for asset_name, asset in current_portfolio.assets.items():
-                current_value = current_portfolio.asset_values[asset_name]
-                if asset_name in year_returns:
-                    return_rate = year_returns[asset_name]
+            new_assets = []
+            for asset in current_portfolio.assets:
+                current_value = asset.current_value
+                if asset.name in year_returns:
+                    return_rate = year_returns[asset.name]
                     new_value = current_value * (1 + return_rate)
                 else:
                     # If no return data for this asset, keep the same value
                     new_value = current_value
                 # Clamp asset value to zero (never negative)
-                new_asset_values[asset_name] = max(new_value, 0.0)
+                new_value = max(new_value, 0.0)
 
-            # Create new portfolio with updated values
+                # Create new asset with updated value
+                from dataclasses import replace
+                new_asset = replace(asset, current_value=new_value)
+                new_assets.append(new_asset)
+
+            # Create new portfolio with updated assets
             current_portfolio = current_portfolio.__class__(
-                assets=current_portfolio.assets,
-                allocation=current_portfolio.allocation,
-                asset_values=new_asset_values,
+                assets=new_assets,
+                allocation_targets=current_portfolio.allocation_targets,
                 rebalancing_strategy=current_portfolio.rebalancing_strategy
             )
 
@@ -174,8 +163,8 @@ class MarketSimulator:
             portfolio_values.append(current_portfolio.total_value)
             allocation_percentages.append(current_portfolio.get_allocation_percentages())
 
-            # Check for failure (portfolio depleted)
-            if current_portfolio.total_value <= 0:
+            # Check for failure (portfolio depleted or below threshold)
+            if current_portfolio.total_value <= failure_threshold:
                 success = False
                 failure_year = year
                 break
@@ -200,41 +189,73 @@ class MarketSimulator:
         )
 
     def _calculate_portfolio_return(self, portfolio: Portfolio, year_returns: Dict[str, float]) -> float:
-        """Calculate portfolio return for a given year."""
+        """Calculate the weighted portfolio return for a given year."""
         total_return = 0.0
         total_value = portfolio.total_value
 
         if total_value == 0:
             return 0.0
 
-        for asset_name, return_rate in year_returns.items():
-            if asset_name in portfolio.asset_values:
-                asset_value = portfolio.asset_values[asset_name]
-                asset_weight = asset_value / total_value
-                total_return += asset_weight * return_rate
+        for asset in portfolio.assets:
+            if asset.name in year_returns:
+                asset_weight = asset.current_value / total_value
+                total_return += asset_weight * year_returns[asset.name]
 
         return total_return
 
     def _apply_cash_flow(self, portfolio: Portfolio, net_cash_flow: float) -> Portfolio:
-        """Apply cash flow to portfolio proportionally across assets."""
+        """Apply cash flow to portfolio by distributing proportionally across assets."""
         if net_cash_flow == 0:
             return portfolio
 
         total_value = portfolio.total_value
-        if total_value == 0:
-            return portfolio
 
-        new_asset_values = {}
-        for asset_name, current_value in portfolio.asset_values.items():
-            # Distribute cash flow proportionally
-            weight = current_value / total_value
-            cash_flow_share = net_cash_flow * weight
-            new_asset_values[asset_name] = current_value + cash_flow_share
+        # Handle negative cash flow (expenses)
+        if net_cash_flow < 0:
+            # If expenses exceed portfolio value, set all assets to zero
+            if abs(net_cash_flow) >= total_value:
+                new_assets = []
+                for asset in portfolio.assets:
+                    from dataclasses import replace
+                    new_asset = replace(asset, current_value=0.0)
+                    new_assets.append(new_asset)
+            else:
+                # Distribute negative cash flow proportionally
+                new_assets = []
+                for asset in portfolio.assets:
+                    asset_weight = asset.current_value / total_value
+                    cash_adjustment = net_cash_flow * asset_weight
+                    new_value = asset.current_value + cash_adjustment
+                    from dataclasses import replace
+                    new_asset = replace(asset, current_value=max(new_value, 0.0))
+                    new_assets.append(new_asset)
+        else:
+            # Handle positive cash flow (contributions)
+            if total_value == 0:
+                # If portfolio is empty, distribute equally
+                num_assets = len(portfolio.assets)
+                if num_assets == 0:
+                    return portfolio
+                cash_per_asset = net_cash_flow / num_assets
+                new_assets = []
+                for asset in portfolio.assets:
+                    from dataclasses import replace
+                    new_asset = replace(asset, current_value=cash_per_asset)
+                    new_assets.append(new_asset)
+            else:
+                # Distribute proportionally based on current allocation
+                new_assets = []
+                for asset in portfolio.assets:
+                    asset_weight = asset.current_value / total_value
+                    cash_adjustment = net_cash_flow * asset_weight
+                    new_value = asset.current_value + cash_adjustment
+                    from dataclasses import replace
+                    new_asset = replace(asset, current_value=max(new_value, 0.0))
+                    new_assets.append(new_asset)
 
         return portfolio.__class__(
-            assets=portfolio.assets,
-            allocation=portfolio.allocation,
-            asset_values=new_asset_values,
+            assets=new_assets,
+            allocation_targets=portfolio.allocation_targets,
             rebalancing_strategy=portfolio.rebalancing_strategy
         )
 
@@ -245,85 +266,109 @@ class MonteCarloEngine:
     def __init__(self,
                  scenario_generator: Optional[ScenarioGenerator] = None,
                  market_simulator: Optional[MarketSimulator] = None,
-                 logger: Optional[RetirementPlannerLogger] = None):
+                 num_scenarios: int = 10000):
         self.scenario_generator = scenario_generator or RandomScenarioGenerator()
-        self.market_simulator = market_simulator or MarketSimulator()
-        self.logger = logger or RetirementPlannerLogger()
+        self.market_simulator = market_simulator
+        self.num_scenarios = num_scenarios
+        self.logger = RetirementPlannerLogger()
 
     def run_simulation(
         self,
         portfolio: Portfolio,
-        num_scenarios: int,
         time_horizon: int,
-        withdrawals: List[float],
-        contributions: List[float],
-        seed: Optional[int] = None,
-        inflation_rate: float = 0.025
+        event_manager=None,
+        person=None
     ) -> SimulationResult:
-        """Run Monte Carlo simulation with real returns (inflation-adjusted)."""
-        try:
-            self.logger.log(LogLevel.INFO, f"Starting Monte Carlo simulation with {num_scenarios:,} scenarios")
-            self.logger.log(LogLevel.INFO, f"Using real returns (inflation rate: {inflation_rate:.1%})")
+        """Run Monte Carlo simulation."""
+        self.logger.log(LogLevel.INFO, f"Starting Monte Carlo simulation with {self.num_scenarios} scenarios")
 
-            # Set random seed if provided
-            if seed is not None:
-                np.random.seed(seed)
+        # Generate scenarios
+        scenarios = self.scenario_generator.generate_scenarios(self.num_scenarios, time_horizon)
 
-            # Generate scenarios
-            scenarios = self.scenario_generator.generate_scenarios(num_scenarios, time_horizon)
+        # Calculate cash flows from events if event_manager is provided
+        if event_manager:
+            withdrawals = []
+            contributions = []
+            retirement_age = person.retirement_age if person else 65
+            for year in range(time_horizon):
+                year_income = 0.0
+                year_expenses = 0.0
 
-            # Run simulations
-            simulation_scenarios = []
-            for i, scenario in enumerate(scenarios):
-                self.logger.log(LogLevel.INFO, f"Running scenario {i+1}/{num_scenarios}")
+                # Calculate income and expenses for this year based on events
+                for event in event_manager.events:
+                    if event.period.start_age <= (year + retirement_age) <= event.period.end_age:
+                        if event.event_type.value == "income":
+                            year_income += event.amount
+                        elif event.event_type.value == "expense":
+                            year_expenses += event.amount
 
-                # Simulate real returns for this scenario
-                returns = self.market_simulator.simulate_returns(portfolio.assets, time_horizon, inflation_rate)
+                contributions.append(year_income)
+                withdrawals.append(year_expenses)
+        else:
+            # Fallback to zero cash flows if no event manager
+            withdrawals = [0.0] * time_horizon
+            contributions = [0.0] * time_horizon
 
-                # Run portfolio simulation
-                simulation_scenario = self.market_simulator.simulate_portfolio_evolution(
-                    portfolio, returns, withdrawals, contributions
+        # Run simulations - each scenario gets its own random returns
+        simulation_scenarios = []
+        for i, scenario in enumerate(scenarios):
+            try:
+                # Generate unique returns for this scenario
+                returns = self.market_simulator.simulate_returns(portfolio.assets, time_horizon)
+
+                result = self.market_simulator.simulate_portfolio_evolution(
+                    portfolio=portfolio,
+                    returns=returns,
+                    withdrawals=withdrawals,
+                    contributions=contributions
                 )
-
-                # Update scenario ID
-                simulation_scenario = simulation_scenario.__class__(
+                # Set the scenario ID
+                result = result.__class__(
                     scenario_id=i,
-                    years=simulation_scenario.years,
-                    portfolio_values=simulation_scenario.portfolio_values,
-                    returns=simulation_scenario.returns,
-                    withdrawals=simulation_scenario.withdrawals,
-                    contributions=simulation_scenario.contributions,
-                    allocation_percentages=simulation_scenario.allocation_percentages,
-                    success=simulation_scenario.success,
-                    failure_year=simulation_scenario.failure_year,
-                    metadata=simulation_scenario.metadata
+                    years=result.years,
+                    portfolio_values=result.portfolio_values,
+                    returns=result.returns,
+                    withdrawals=result.withdrawals,
+                    contributions=result.contributions,
+                    allocation_percentages=result.allocation_percentages,
+                    success=result.success,
+                    failure_year=result.failure_year,
+                    metadata=result.metadata
                 )
+                simulation_scenarios.append(result)
+            except Exception as e:
+                self.logger.log(LogLevel.ERROR, f"Scenario {i} failed: {e}")
+                # Create a failed scenario
+                failed_scenario = SimulationScenario(
+                    scenario_id=i,
+                    years=list(range(time_horizon + 1)),
+                    portfolio_values=[portfolio.total_value] + [0.0] * time_horizon,
+                    returns=[0.0] * time_horizon,
+                    withdrawals=withdrawals,
+                    contributions=contributions,
+                    allocation_percentages=[portfolio.get_allocation_percentages()] + [{}] * time_horizon,
+                    success=False,
+                    failure_year=0
+                )
+                simulation_scenarios.append(failed_scenario)
 
-                simulation_scenarios.append(simulation_scenario)
+        # Calculate results
+        result = self._calculate_results(simulation_scenarios, time_horizon)
 
-            # Calculate results
-            result = self._calculate_results(simulation_scenarios, time_horizon)
-
-            self.logger.log(LogLevel.SUCCESS, f"Simulation complete. Success rate: {result.success_rate:.1%}")
-
-            return result
-
-        except Exception as e:
-            raise SimulationError(f"Simulation failed: {e}") from e
+        self.logger.log(LogLevel.SUCCESS, f"Simulation completed. Success rate: {result.success_rate:.1%}")
+        return result
 
     def _calculate_results(self, scenarios: List[SimulationScenario], time_horizon: int) -> SimulationResult:
         """Calculate aggregate results from simulation scenarios."""
         if not scenarios:
             raise SimulationError("No scenarios provided for result calculation")
 
-        # Extract final portfolio values
-        final_values = [scenario.portfolio_values[-1] for scenario in scenarios]
-
         # Calculate success rate
         successful_scenarios = [s for s in scenarios if s.success]
         success_rate = len(successful_scenarios) / len(scenarios)
 
-        # Calculate portfolio value statistics
+        # Calculate portfolio value statistics at the end of the simulation
+        final_values = [s.portfolio_values[-1] for s in scenarios]
         average_portfolio_value = np.mean(final_values)
         median_portfolio_value = np.median(final_values)
         worst_case_portfolio_value = np.min(final_values)

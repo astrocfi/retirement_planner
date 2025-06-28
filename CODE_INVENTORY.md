@@ -3,239 +3,200 @@
 ## Phase 1: Core Foundation ✅
 ### Core Exceptions and Validation
 - **File**: `retirement_planner/core/exceptions.py`
-- **Classes**: `RetirementPlannerError`, `ValidationError`, `ConfigurationError`, `DataError`, `CalculationError`, `SimulationError`
-- **Status**: COMPLETED
+  - `ErrorContext`: Context information for error reporting.
+  - `RetirementPlannerException`: Base exception for all planner errors.
+  - `ValidationError`: Raised for input validation failures.
+  - `ConfigurationError`: Raised for configuration errors.
+  - `DataError`: Raised for data loading/processing errors.
+  - `SimulationError`: Raised for simulation failures.
+  - `OptimizationError`: Raised for optimization failures.
+  - `TaxCalculationError`: Raised for tax calculation errors.
+  - `AssetError`: Raised for asset-related errors.
+  - `EventError`: Raised for event processing errors.
+  - `PortfolioError`: Raised for portfolio operation errors.
+  - Convenience functions: `create_validation_error`, `create_configuration_error`, `create_data_error` (helpers for error creation with context).
 
 ### Core Validation
 - **File**: `retirement_planner/core/validation.py`
-- **Classes**: `Validator`, `ValidationRule`, `ValidationResult`
-- **Status**: COMPLETED
+  - `ValidationResult`: Result of a validation operation (validity, errors, warnings).
+  - `ValidationRule`: Abstract base for all validation rules.
+  - `FieldValidator`: Validator for a single field with multiple rules.
+  - `BusinessRuleValidator`: Validator for business rules spanning multiple fields.
+  - `Validator`: Main orchestrator for field and business rule validation.
+  - `RequiredRule`, `TypeRule`, `RangeRule`, `AgeRule`, `PercentageRule`, `RegexRule`, `ChoiceRule`: Concrete validation rules for common constraints.
 
 ### Logging System
 - **File**: `retirement_planner/core/logging.py`
-- **Classes**: `RetirementLogger`, `LogFormatter`, `LogHandler`
-- **Status**: COMPLETED
+  - `LogLevel`: Enum for user-friendly log levels.
+  - `LogMessage`: User-friendly log message with context.
+  - `FinancialFormatter`: Formats financial data (currency, percent, age, allocation).
+  - `UserLogger`: Logs clear, readable messages for users.
+  - `ProgressLogger`: Logs progress for long-running operations.
+  - `FinancialLogger`: Explains financial calculations in plain English.
+  - `RetirementPlannerLogger`: Main logging interface, aggregates all logging features.
 
 ### Configuration Management
 - **File**: `retirement_planner/core/config.py`
-- **Classes**: `Configuration`, `ConfigLoader`, `ConfigValidator`
-- **Status**: COMPLETED
+  - `BaseConfig`: Base class for configuration objects.
+  - `ConfigLoader`: Loads and validates configuration from YAML/JSON and environment.
+  - `AppConfig`: Example application config dataclass.
+  - `get_default_schema`: Returns default config schema.
 
 ### Utilities
-- **File**: `retirement_planner/utils/date_utils.py`
-- **Classes**: `DateCalculator`, `DateRange`, `DateValidator`
-- **Status**: COMPLETED
+- **File**: `retirement_planner/utils/file_utils.py`
+  - `FileInfo`: Information about a file.
+  - `FileUtils`: General file I/O utilities (read, write, backup, info).
+  - `YamlLoader`: YAML file loading, saving, validation, merging.
+  - `JsonLoader`: JSON file loading, saving, validation, merging, pretty-printing.
+  - `ConfigFileManager`: Configuration file management and caching.
 
 - **File**: `retirement_planner/utils/math_utils.py`
-- **Classes**: `MathUtils`, `Statistics`, `FinancialMath`
-- **Status**: COMPLETED
+  - `FinancialMetrics`: Container for financial calculation results.
+  - `MathUtils`: Core mathematical utilities (compound interest, PV, FV, annuity, inflation, real return, rounding, validation).
+  - `StatisticalUtils`: Statistical calculations (mean, median, std, variance, percentiles, correlation, skewness, kurtosis).
+  - `RiskMetrics`: Risk measurement (VaR, CVaR, max drawdown, Sharpe, Sortino, Calmar ratios).
+  - `PortfolioMath`: Portfolio-specific math (returns, volatility, rebalancing, geometric mean).
 
-- **File**: `retirement_planner/utils/file_utils.py`
-- **Classes**: `FileManager`, `DataLoader`, `DataSaver`
-- **Status**: COMPLETED
+- **File**: `retirement_planner/utils/date_utils.py`
+  - `AgePeriod`: Represents a period defined by ages.
+  - `DatePeriod`: Represents a period defined by dates.
+  - `DateUtils`: Date and time period calculation utilities (age, years between, add years, retirement/life expectancy dates, working/retirement periods, formatting, leap year, days in year).
+  - `AgeCalculator`: Age-based calculations (years to retirement, retirement years, total planning years, working/retirement age checks, age periods, social security eligibility, RMD age, age formatting, age at date, dates for age range).
 
-## Phase 2: Data Models ✅
+## Phase 2: Data Models & Data Layer ✅
 ### Person Model
 - **File**: `retirement_planner/models/person.py`
-- **Classes**: `Person`, `Goal`, `GoalType`, `GoalPriority`
-- **Status**: COMPLETED - Updated to remove annual_contribution field
+  - `Person`: Core person profile (age, retirement age, life expectancy, goals).
+  - `Goal`: Retirement planning goal (priority, type, target amount).
 
 ### Event System
 - **File**: `retirement_planner/models/events.py`
-- **Classes**: `Event`, `EventType`, `EventManager`
-- **Status**: COMPLETED
+  - `Event`: Base event class for temporal modeling (age-based timing, inflation adjustment).
+  - `EventType`: Enumeration of event types (income, expense, asset, custom, liability, tax, benefit, lifestyle, health, family, economic).
+  - `EventManager`: Manages event processing, resolution, and cash flow calculations.
+  - `Period`: Time period with age-based boundaries for event scheduling.
 
 ### Data Structures
 - **File**: `retirement_planner/data/tax_data.py`
-- **Classes**: `TaxData`, `TaxBracket`, `DeductionData`
-- **Status**: COMPLETED
+  - `TaxDataLoader`: Loads tax data from config files.
+  - `TaxBrackets`: Complete set of tax brackets for a filing status and year.
+  - `SocialSecurityData`: Social Security parameters and benefit calculations.
 
 - **File**: `retirement_planner/data/market_data.py`
-- **Classes**: `MarketData`, `HistoricalData`, `MarketMetrics`
-- **Status**: COMPLETED
+  - `MarketDataLoader`: Loads market data from various sources.
+  - `HistoricalReturns`: Historical returns data for assets.
+  - `CorrelationMatrix`: Correlation matrix for asset returns.
+  - `RiskFreeRate`: Risk-free rate data with term structure support.
 
 - **File**: `retirement_planner/data/validators.py`
-- **Classes**: `DataValidator`, `SchemaValidator`, `DataCleaner`
-- **Status**: COMPLETED
+  - `DataValidator`: Main data validation orchestrator.
+  - `OutlierDetector`: Detects outliers in data using statistical methods.
+  - `DataQualityChecker`: Checks data quality and consistency.
+  - `ValidationResult`: Result of data validation operations.
 
 ## Phase 3: Asset Classes ✅
 ### Base Asset System
 - **File**: `retirement_planner/assets/base.py`
-- **Classes**:
-  - `Asset`: Base asset class with common functionality
-  - `AssetType`: Enum for asset types (EQUITY, BOND, REAL_ESTATE, COMMODITY, CASH, CUSTOM)
-  - `AssetMetrics`: Asset performance metrics
-  - `AssetFactory`: Factory for creating assets from configuration
-  - `AssetAllocation`: Portfolio allocation management
-- **Status**: COMPLETED - Full implementation with metadata support and comprehensive tests
+  - `Asset`: Base asset class (returns, volatility, correlation, config-driven).
+  - `AssetFactory`: Factory for creating asset instances with configuration.
+  - `AssetAllocation`: Asset allocation strategy and rebalancing functionality.
 
 ### Equity Assets
 - **File**: `retirement_planner/assets/equities.py`
-- **Classes**: `Equity`
-- **Features**:
-  - Single class supporting all stock types with configuration
-  - Dividend yield, beta, market cap (small/medium/large)
-  - Geography support (domestic/international/emerging)
-  - Public vs private equity distinction
-  - Sector and country classification
-  - Foreign tax rate handling
-  - Risk-adjusted return calculations
-  - Currency risk assessment
-  - Liquidity premium calculations
-- **Status**: COMPLETED - 100% test coverage
+  - `Equity`: Single class supporting all stock types (market cap, geography, public/private, config-driven).
 
 ### Bond Assets
 - **File**: `retirement_planner/assets/bonds.py`
-- **Classes**: `Bond`
-- **Features**:
-  - Single class supporting all bond types with configuration
-  - Tax treatment classification (taxable/tax-exempt/tax-deferred)
-  - Coupon rate, maturity date, face value
-  - Credit rating and issuer type
-  - Duration calculations
-  - Interest rate risk assessment
-  - Credit risk evaluation
-  - Yield to maturity calculations
-  - After-tax yield calculations
-- **Status**: COMPLETED - 97% test coverage
-
-### Alternative Assets
-- **File**: `retirement_planner/assets/alternatives.py`
-- **Classes**: `RealEstate`, `Commodity`, `CustomAsset`
-- **Features**:
-  - RealEstate: Property types, rental income, leverage, tax treatment
-  - Commodity: Storage costs, insurance, inflation hedging, delivery mechanisms
-  - CustomAsset: User-defined assets with income streams, liquidity scores, complexity
-  - Excludes private equity (handled by Equity class)
-  - Carrying cost calculations
-  - Liquidity-adjusted returns
-  - Complexity risk assessment
-- **Status**: COMPLETED - 100% test coverage
+  - `Bond`: Single class supporting all bond types (tax treatment, duration, credit quality, config-driven).
 
 ### Cash Assets
 - **File**: `retirement_planner/assets/cash.py`
-- **Classes**: `CashEquivalent`
-- **Features**:
-  - Single class supporting all cash equivalents with configuration
-  - Account types (savings, checking, CD, money market)
-  - Interest rates and compounding
-  - FDIC insurance status
-  - Liquidity scoring
-  - Early withdrawal penalties
-  - Monthly fees and minimum balances
-  - Tax-deferred account support
-  - Effective annual yield calculations
-- **Status**: COMPLETED - 100% test coverage
+  - `CashEquivalent`: Single class supporting all cash equivalents (interest rate, liquidity, FDIC insurance, config-driven).
 
-### Asset Tests
-- **Files**: `tests/assets/test_*.py`
-- **Coverage**: 158 comprehensive unit tests
-- **Status**: COMPLETED - All tests passing with high coverage
+### Alternative Assets
+- **File**: `retirement_planner/assets/alternatives.py`
+  - `RealEstate`: Real estate investments (property type, location, leverage, config-driven).
+  - `Commodity`: Commodities and precious metals (commodity type, storage costs, config-driven).
+  - `CustomAsset`: User-defined custom assets (flexible configuration for any investment type).
 
-## Phase 4: Tax System
-### Federal Tax
-- **File**: `retirement_planner/taxes/federal.py`
-- **Classes**: `FederalTax`, `TaxBracket`, `DeductionCalculator`
+## Phase 4: Tax Classes ✅
+### Federal and State Tax System
+- **File**: `retirement_planner/tax/federal.py`
+  - `FederalTax`: Abstract base for federal tax logic.
+  - `USFederalTax`: Loads brackets, deductions, and rates from YAML config.
+  - `SocialSecurity`: Social Security benefit and Medicare calculations (config-driven).
+  - `RetirementAccountTax`: RMD and contribution rules (config-driven).
+
+- **File**: `retirement_planner/tax/state.py`
+  - `StateTax`: Abstract base for state tax logic.
+  - `CaliforniaTax`: California-specific logic, config-driven.
+
+## Phase 5: Portfolio Management
+### Portfolio Management
+- **File**: `retirement_planner/portfolio/portfolio.py`
+- **Classes**: `Portfolio`, `AssetAllocation`, `RebalancingStrategy`
 - **Status**: PLANNED
 
-### State Tax
-- **File**: `retirement_planner/taxes/state.py`
-- **Classes**: `StateTax`, `StateTaxBracket`, `StateTaxCalculator`
+### Risk Management
+- **File**: `retirement_planner/portfolio/risk.py`
+- **Classes**: `RiskMetrics`, `RiskManager`, `RiskCalculator`
 - **Status**: PLANNED
 
-### California Tax
-- **File**: `retirement_planner/taxes/california.py`
-- **Classes**: `CaliforniaTax`, `CaliforniaBracket`
+## Phase 6: Monte Carlo Simulation
+### Simulation Engine
+- **File**: `retirement_planner/simulation/engine.py`
+- **Classes**: `MonteCarloEngine`, `ScenarioGenerator`, `MarketSimulator`
 - **Status**: PLANNED
 
-### Social Security
-- **File**: `retirement_planner/taxes/social_security.py`
-- **Classes**: `SocialSecurity`, `BenefitCalculator`, `PIA`
+### Market Modeling
+- **File**: `retirement_planner/simulation/market.py`
+- **Classes**: `MarketModel`, `ReturnSimulator`, `CorrelationModel`
 - **Status**: PLANNED
 
-### Retirement Accounts
-- **File**: `retirement_planner/taxes/retirement_accounts.py`
-- **Classes**: `RetirementAccount`, `TraditionalIRA`, `RothIRA`, `RMDCalculator`
+## Phase 7: Analysis Engine
+### Retirement Analysis
+- **File**: `retirement_planner/analysis/retirement.py`
+- **Classes**: `RetirementAnalyzer`, `GoalTracker`, `SuccessCalculator`
 - **Status**: PLANNED
 
-## Phase 5: Simulation Engine
-### Random Number Generation
-- **File**: `retirement_planner/simulation/random_generators.py`
-- **Classes**: `RandomGenerator`, `SobolGenerator`, `MersenneTwister`
+### Withdrawal Strategies
+- **File**: `retirement_planner/analysis/withdrawal.py`
+- **Classes**: `WithdrawalStrategy`, `WithdrawalOptimizer`
 - **Status**: PLANNED
 
-### Correlation and Scenarios
-- **File**: `retirement_planner/simulation/correlation.py`
-- **Classes**: `CorrelationMatrix`, `CholeskyDecomposition`, `ScenarioGenerator`
+## Phase 8: User Interface
+### Command Line Interface
+- **File**: `retirement_planner/cli/main.py`
+- **Classes**: `CLI`, `CommandHandler`, `OutputFormatter`
 - **Status**: PLANNED
 
-### Monte Carlo Simulator
-- **File**: `retirement_planner/simulation/monte_carlo.py`
-- **Classes**: `MonteCarloSimulator`, `SimulationResult`, `ScenarioRunner`
+### Report Generation
+- **File**: `retirement_planner/reports/generator.py`
+- **Classes**: `ReportGenerator`, `ChartCreator`, `DataExporter`
 - **Status**: PLANNED
 
-## Phase 6: Optimization & Analysis
-### Strategy Optimization
-- **File**: `retirement_planner/optimization/strategies.py`
-- **Classes**: `Strategy`, `StrategyParameter`, `StrategySpace`
-- **Status**: PLANNED
+## Testing Coverage
+### Unit Tests
+- **Core Tests**: `tests/core/` - Complete coverage
+- **Model Tests**: `tests/models/` - Complete coverage
+- **Asset Tests**: `tests/assets/` - Complete coverage (158 tests)
+- **Tax Tests**: `tests/tax/` - Complete coverage (7 tests)
+- **Utility Tests**: `tests/utils/` - Complete coverage
 
-- **File**: `retirement_planner/optimization/objectives.py`
-- **Classes**: `ObjectiveFunction`, `MultiObjective`, `ParetoFrontier`
-- **Status**: PLANNED
+### Integration Tests
+- **Configuration Tests**: `examples/50_year_old_retirement_scenario/tests/` - Complete coverage
+- **Asset Configuration Tests**: `examples/50_year_old_retirement_scenario/tests/assets_test.py` - Complete coverage
 
-- **File**: `retirement_planner/optimization/algorithms.py`
-- **Classes**: `Optimizer`, `GridSearch`, `GeneticAlgorithm`, `BayesianOptimizer`
-- **Status**: PLANNED
+## Documentation
+### Design Documents
+- **Development Plan**: `DEVELOPMENT_PLAN.md` - Updated with Phase 4 completion
+- **Code Inventory**: `CODE_INVENTORY.md` - Updated with all completed phases
+- **Package Structure**: `PACKAGE_STRUCTURE.md` - Current structure documented
+- **Requirements**: `REQUIREMENTS.md` - Comprehensive requirements specification
 
-### Performance Analysis
-- **File**: `retirement_planner/analysis/metrics.py`
-- **Classes**: `PerformanceMetrics`, `SuccessRate`, `RiskMetrics`
-- **Status**: PLANNED
-
-- **File**: `retirement_planner/analysis/risk.py`
-- **Classes**: `RiskAnalyzer`, `VaRCalculator`, `DrawdownAnalyzer`
-- **Status**: PLANNED
-
-- **File**: `retirement_planner/analysis/sensitivity.py`
-- **Classes**: `SensitivityAnalyzer`, `TornadoChart`, `ParameterSensitivity`
-- **Status**: PLANNED
-
-## Phase 7: Reporting and Integration
-### Reporting Engine
-- **File**: `retirement_planner/reporting/reports.py`
-- **Classes**: `ReportGenerator`, `SummaryReport`, `DetailedReport`
-- **Status**: PLANNED
-
-- **File**: `retirement_planner/reporting/charts.py`
-- **Classes**: `ChartGenerator`, `MonteCarloPlot`, `HeatMap`, `EfficientFrontier`
-- **Status**: PLANNED
-
-- **File**: `retirement_planner/reporting/export.py`
-- **Classes**: `DataExporter`, `PdfExporter`, `ExcelExporter`, `ApiExporter`
-- **Status**: PLANNED
-
-### Integration
-- **File**: `retirement_planner/models/portfolio.py`
-- **Classes**: `Portfolio`, `PortfolioManager`, `Rebalancer`
-- **Status**: PLANNED
-
-- **File**: `retirement_planner/models/scenarios.py`
-- **Classes**: `Scenario`, `ScenarioManager`, `ScenarioComparator`
-- **Status**: PLANNED
-
-## Design Patterns Used
-1. **Factory Pattern**: AssetFactory for creating assets from configuration
-2. **Strategy Pattern**: Different asset types with common interface
-3. **Builder Pattern**: Asset construction with metadata
-4. **Observer Pattern**: Event system for life events
-5. **Singleton Pattern**: Configuration and logging systems
-6. **Template Method**: Base Asset class with specialized implementations
-7. **Decorator Pattern**: Asset metrics and risk calculations
-8. **Command Pattern**: Analysis and optimization operations
-
-## Testing Strategy
-- **Unit Tests**: Comprehensive coverage for all classes
-- **Integration Tests**: Asset interactions and portfolio management
-- **Performance Tests**: Monte Carlo simulation performance
-- **Regression Tests**: Automated test suites for all phases
+### Example Configurations
+- **Person Profile**: `examples/50_year_old_retirement_scenario/person_profile.yaml` - Updated for new design
+- **Asset Configuration**: `examples/50_year_old_retirement_scenario/assets.yaml` - New metadata-based structure
+- **Events Configuration**: `examples/50_year_old_retirement_scenario/events.yaml` - Compatible with current design
+- **Market Data**: `examples/50_year_old_retirement_scenario/market_data.yaml` - Compatible with current design
+- **Simulation Config**: `examples/50_year_old_retirement_scenario/simulation_config.yaml` - Compatible with current design

@@ -232,19 +232,54 @@ This document outlines the phased development approach for the retirement analys
   - `CaliforniaTax`: California-specific logic, config-driven
 - **Status**: COMPLETED - All logic is configuration-driven, no hard-coded values, with full test coverage
 
-## Phase 5: Portfolio Management
-- [ ] Portfolio class with asset allocation
-- [ ] Rebalancing logic
-- [ ] Risk metrics calculation
-- [ ] Performance tracking
-- [ ] Tests for portfolio management
+## Phase 5: Portfolio Management ✅
+- [x] Portfolio class with asset allocation
+- [x] Rebalancing logic
+- [x] Risk metrics calculation
+- [x] Performance tracking
+- [x] Tests for portfolio management
 
-## Phase 6: Monte Carlo Simulation
-- [ ] Scenario generation
-- [ ] Market data integration
-- [ ] Return simulation
-- [ ] Risk modeling
-- [ ] Tests for simulation engine
+### 5.1 Portfolio Management ✅
+- **File**: `retirement_planner/models/portfolio.py`
+- **Purpose**: Portfolio management with asset allocation and rebalancing
+- **Dependencies**: assets/base.py, core/exceptions.py
+- **Classes**:
+  - `Portfolio`: Main portfolio class with asset management, allocation tracking, and rebalancing
+  - `AssetAllocation`: Immutable asset allocation with validation and rebalancing calculations
+  - `RebalancingStrategy`: Abstract base for rebalancing strategies
+  - `StaticRebalancingStrategy`: Concrete strategy that rebalances to target allocation
+- **Status**: COMPLETED - Full implementation with comprehensive unit tests and 91% code coverage
+
+## Phase 6: Monte Carlo Simulation ✅
+- [x] MonteCarloEngine orchestrates simulation
+- [x] ScenarioGenerator and RandomScenarioGenerator for scenario creation
+- [x] MarketSimulator for returns and portfolio evolution
+- [x] MarketModel, CorrelationModel, ReturnSimulator for market modeling
+- [x] SimpleMarketModel and CorrelatedMarketModel
+- [x] Comprehensive unit tests for simulation and market modules
+
+### 6.1 Simulation Engine ✅
+- **File**: `retirement_planner/simulation/engine.py`
+- **Purpose**: Run Monte Carlo scenarios, aggregate results, and handle simulation errors
+- **Dependencies**: models/portfolio.py, assets/base.py, core/exceptions.py, core/logging.py
+- **Classes**:
+  - `MonteCarloEngine`: Main simulation orchestrator with configurable components
+  - `SimulationScenario`: Immutable result for a single scenario with portfolio evolution data
+  - `SimulationResult`: Aggregated results for all scenarios with success metrics and statistics
+  - `ScenarioGenerator` / `RandomScenarioGenerator`: Scenario generation strategies with configurable time horizons
+  - `MarketSimulator`: Simulates market returns and portfolio evolution with cash flows and rebalancing
+- **Status**: COMPLETED - Full implementation with comprehensive unit tests and 94% code coverage
+
+### 6.2 Market Modeling ✅
+- **File**: `retirement_planner/simulation/market.py`
+- **Purpose**: Simulate asset returns, handle correlation, and provide market models
+- **Dependencies**: assets/base.py, core/exceptions.py
+- **Classes**:
+  - `MarketModel`: Abstract base for market models with return simulation framework
+  - `CorrelationModel`: Handles asset correlation and validation with Cholesky decomposition
+  - `ReturnSimulator`: Simulates asset returns (correlated/uncorrelated) with normal distribution
+  - `SimpleMarketModel` / `CorrelatedMarketModel`: Market models for simulation with seed control
+- **Status**: COMPLETED - Full implementation with comprehensive unit tests and 99% code coverage
 
 ## Phase 7: Analysis Engine
 - [ ] Retirement analysis

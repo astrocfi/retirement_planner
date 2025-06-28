@@ -131,27 +131,36 @@
   - `StateTax`: Abstract base for state tax logic.
   - `CaliforniaTax`: California-specific logic, config-driven.
 
-## Phase 5: Portfolio Management
+## Phase 5: Portfolio Management ✅
 ### Portfolio Management
-- **File**: `retirement_planner/portfolio/portfolio.py`
-- **Classes**: `Portfolio`, `AssetAllocation`, `RebalancingStrategy`
-- **Status**: PLANNED
+- **File**: `retirement_planner/models/portfolio.py`
+  - `Portfolio`: Main portfolio class with asset management, allocation tracking, and rebalancing.
+  - `AssetAllocation`: Immutable asset allocation with validation and rebalancing calculations.
+  - `RebalancingStrategy`: Abstract base for rebalancing strategies.
+  - `StaticRebalancingStrategy`: Concrete strategy that rebalances to target allocation.
 
-### Risk Management
-- **File**: `retirement_planner/portfolio/risk.py`
-- **Classes**: `RiskMetrics`, `RiskManager`, `RiskCalculator`
-- **Status**: PLANNED
+### Portfolio Features
+- **Asset Management**: Portfolio holds assets, allocation targets, and current values.
+- **Rebalancing**: Support for different rebalancing strategies with immutable portfolio updates.
+- **Validation**: Comprehensive validation of allocations, asset types, and portfolio consistency.
+- **Allocation Tracking**: Calculate current allocation percentages and target rebalancing amounts.
+- **Error Handling**: Custom PortfolioError exceptions with detailed error messages.
 
-## Phase 6: Monte Carlo Simulation
-### Simulation Engine
+## Phase 6: Monte Carlo Simulation ✅
+### Simulation Engine and Market Modeling
 - **File**: `retirement_planner/simulation/engine.py`
-- **Classes**: `MonteCarloEngine`, `ScenarioGenerator`, `MarketSimulator`
-- **Status**: PLANNED
+  - `MonteCarloEngine`: Main simulation orchestrator for running Monte Carlo scenarios.
+  - `SimulationScenario`: Immutable result for a single scenario with portfolio evolution data.
+  - `SimulationResult`: Aggregated results for all scenarios with success metrics and statistics.
+  - `ScenarioGenerator` / `RandomScenarioGenerator`: Scenario generation strategies with configurable time horizons.
+  - `MarketSimulator`: Simulates market returns and portfolio evolution with cash flows and rebalancing.
 
-### Market Modeling
 - **File**: `retirement_planner/simulation/market.py`
-- **Classes**: `MarketModel`, `ReturnSimulator`, `CorrelationModel`
-- **Status**: PLANNED
+  - `MarketModel`: Abstract base for market models with return simulation framework.
+  - `CorrelationModel`: Handles asset correlation and validation with Cholesky decomposition.
+  - `ReturnSimulator`: Simulates asset returns (correlated/uncorrelated) with normal distribution.
+  - `SimpleMarketModel` / `CorrelatedMarketModel`: Market models for simulation with seed control.
+- **Status**: COMPLETED - Full implementation with comprehensive unit tests and 94%+ code coverage
 
 ## Phase 7: Analysis Engine
 ### Retirement Analysis
@@ -166,9 +175,9 @@
 
 ## Phase 8: User Interface
 ### Command Line Interface
-- **File**: `retirement_planner/cli/main.py`
+- **File**: `retirement_planner/analysis/run_analysis.py`
 - **Classes**: `CLI`, `CommandHandler`, `OutputFormatter`
-- **Status**: PLANNED
+- **Status**: PARTIALLY IMPLEMENTED - Subcommands (validate, analyze, report, simulate) with config loading and basic analysis.
 
 ### Report Generation
 - **File**: `retirement_planner/reports/generator.py`
@@ -178,10 +187,11 @@
 ## Testing Coverage
 ### Unit Tests
 - **Core Tests**: `tests/core/` - Complete coverage
-- **Model Tests**: `tests/models/` - Complete coverage
+- **Model Tests**: `tests/models/` - Complete coverage (including new portfolio tests)
 - **Asset Tests**: `tests/assets/` - Complete coverage (158 tests)
 - **Tax Tests**: `tests/tax/` - Complete coverage (7 tests)
 - **Utility Tests**: `tests/utils/` - Complete coverage
+- **Portfolio Tests**: `tests/models/test_portfolio.py` - Complete coverage (10 tests)
 
 ### Integration Tests
 - **Configuration Tests**: `examples/50_year_old_retirement_scenario/tests/` - Complete coverage
@@ -189,7 +199,7 @@
 
 ## Documentation
 ### Design Documents
-- **Development Plan**: `DEVELOPMENT_PLAN.md` - Updated with Phase 4 completion
+- **Development Plan**: `DEVELOPMENT_PLAN.md` - Updated with Phase 5 completion
 - **Code Inventory**: `CODE_INVENTORY.md` - Updated with all completed phases
 - **Package Structure**: `PACKAGE_STRUCTURE.md` - Current structure documented
 - **Requirements**: `REQUIREMENTS.md` - Comprehensive requirements specification

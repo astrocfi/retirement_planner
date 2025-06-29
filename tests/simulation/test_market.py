@@ -1,50 +1,59 @@
+"""
+Tests for market simulation models.
+"""
+
 import pytest
 import numpy as np
-from unittest.mock import Mock
-
+from unittest.mock import Mock, MagicMock
 from retirement_planner.simulation.market import (
-    MarketModel,
-    CorrelationModel,
-    ReturnSimulator,
-    SimpleMarketModel,
-    CorrelatedMarketModel
+    MarketModel, CorrelationModel, ReturnSimulator,
+    SimpleMarketModel, CorrelatedMarketModel
 )
-from retirement_planner.assets.equities import Equity
+from retirement_planner.assets.base import Asset, AssetType
 from retirement_planner.core.exceptions import SimulationError
 
 
 @pytest.fixture
 def assets():
     return {
-        'StockA': Equity(
+        'StockA': Asset(
             name='StockA',
+            asset_type=AssetType.EQUITY,
             current_value=60000,
             expected_return=0.08,
             volatility=0.15,
-            dividend_yield=0.02,
-            beta=1.0,
-            market_cap='large',
-            geography='domestic'
+            dividend_rate=0.02,
+            metadata={
+                'beta': 1.0,
+                'market_cap': 'large',
+                'geography': 'domestic'
+            }
         ),
-        'BondB': Equity(
+        'BondB': Asset(
             name='BondB',
+            asset_type=AssetType.BOND,
             current_value=30000,
             expected_return=0.04,
             volatility=0.08,
-            dividend_yield=0.03,
-            beta=0.5,
-            market_cap='medium',
-            geography='domestic'
+            dividend_rate=0.03,
+            metadata={
+                'beta': 0.5,
+                'market_cap': 'medium',
+                'geography': 'domestic'
+            }
         ),
-        'CashC': Equity(
+        'CashC': Asset(
             name='CashC',
+            asset_type=AssetType.CASH,
             current_value=10000,
             expected_return=0.02,
             volatility=0.01,
-            dividend_yield=0.01,
-            beta=0.1,
-            market_cap='small',
-            geography='domestic'
+            dividend_rate=0.01,
+            metadata={
+                'beta': 0.1,
+                'market_cap': 'small',
+                'geography': 'domestic'
+            }
         ),
     }
 

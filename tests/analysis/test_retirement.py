@@ -11,7 +11,7 @@ from retirement_planner.analysis.retirement import (
 )
 from retirement_planner.models.person import Person, Goal
 from retirement_planner.models.portfolio import Portfolio, AssetAllocation, StaticRebalancingStrategy
-from retirement_planner.assets.equities import Equity
+from retirement_planner.assets.base import Asset, AssetType
 from retirement_planner.simulation.engine import SimulationResult, SimulationScenario
 from retirement_planner.core.exceptions import AnalysisError
 
@@ -36,25 +36,31 @@ def person():
 @pytest.fixture
 def assets():
     return {
-        'StockA': Equity(
+        'StockA': Asset(
             name='StockA',
+            asset_type=AssetType.EQUITY,
             current_value=60000,
             expected_return=0.08,
             volatility=0.15,
-            dividend_yield=0.02,
-            beta=1.0,
-            market_cap='large',
-            geography='domestic'
+            dividend_rate=0.02,
+            metadata={
+                'beta': 1.0,
+                'market_cap': 'large',
+                'geography': 'domestic'
+            }
         ),
-        'BondB': Equity(
+        'BondB': Asset(
             name='BondB',
+            asset_type=AssetType.BOND,
             current_value=30000,
             expected_return=0.04,
             volatility=0.08,
-            dividend_yield=0.03,
-            beta=0.5,
-            market_cap='medium',
-            geography='domestic'
+            dividend_rate=0.03,
+            metadata={
+                'beta': 0.5,
+                'market_cap': 'medium',
+                'geography': 'domestic'
+            }
         ),
     }
 

@@ -14,6 +14,14 @@ import concurrent.futures
 import multiprocessing
 from functools import partial
 
+# Configure multiprocessing to use a safer method
+if hasattr(multiprocessing, 'set_start_method'):
+    try:
+        multiprocessing.set_start_method('spawn', force=True)
+    except RuntimeError:
+        # Method already set, ignore
+        pass
+
 from retirement_planner.models.portfolio import Portfolio
 from retirement_planner.assets.base import Asset
 from retirement_planner.models.person import Person
@@ -557,7 +565,9 @@ class MonteCarloEngine:
         max_workers = self.max_workers or min(multiprocessing.cpu_count(), self.num_scenarios)
         self.logger.log(LogLevel.INFO, f"Running {self.num_scenarios} scenarios using {max_workers} parallel workers")
 
-        with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+        # Use spawn context to avoid fork() deprecation warnings
+        ctx = multiprocessing.get_context('spawn')
+        with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers, mp_context=ctx) as executor:
             # Create a list of scenario parameters
             scenario_params = []
             for i in range(self.num_scenarios):

@@ -1,21 +1,25 @@
 # Bonds Zero Returns Asset Performance Scenario
-# Only bonds have zero returns, stocks maintain normal returns
+# Stocks perform normally, bonds have zero returns
 
 asset_performance:
   - type: "stocks"
     asset_type: "equity"
     expected_return: 0.07
     volatility: 0.15
+    dividend_rate: 0.018
+    dividend_volatility: 0.005
     correlation:
       stocks: 1.0
       bonds: 0.0
-    description: "US large cap stocks (normal returns)"
+    description: "US large cap stocks"
 
   - type: "bonds"
     asset_type: "fixed_income"
     expected_return: 0.00
     volatility: 0.00
+    dividend_rate: 0.03
+    dividend_volatility: 0.002
     correlation:
       stocks: 0.0
       bonds: 1.0
-    description: "US investment grade bonds (zero returns)"
+    description: "US investment grade bonds (no growth)"

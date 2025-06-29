@@ -16,6 +16,7 @@ from .exceptions import RetirementPlannerException
 
 class LogLevel(Enum):
     """User-friendly log levels."""
+    DEBUG = 0
     INFO = 1
     WARNING = 2
     ERROR = 3

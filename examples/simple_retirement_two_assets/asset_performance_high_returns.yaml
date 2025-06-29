@@ -6,6 +6,8 @@ asset_performance:
     asset_type: "equity"
     expected_return: 0.10
     volatility: 0.18
+    dividend_rate: 0.02
+    dividend_volatility: 0.006
     correlation:
       stocks: 1.0
       bonds: 0.0
@@ -13,8 +15,10 @@ asset_performance:
 
   - type: "bonds"
     asset_type: "fixed_income"
-    expected_return: 0.06
-    volatility: 0.06
+    expected_return: 0.00
+    volatility: 0.00
+    dividend_rate: 0.06
+    dividend_volatility: 0.003
     correlation:
       stocks: 0.0
       bonds: 1.0

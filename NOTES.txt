@@ -1,0 +1,52 @@
+Fed tax calculator: https://www.nerdwallet.com/calculator/tax-calculator
+State tax calculator: https://webapp.ftb.ca.gov/taxcalc/
+
+The data CSV file is wrong:
+
+Issues I Notice:
+
+1. portfolio_inflow calculation looks wrong: It's calculated as net_income - total_tax,
+but net_income already accounts for taxes (it's -(expenses - (total_income - total_tax))).
+This means portfolio_inflow is double-counting taxes.
+
+2. net_income calculation: The comment says "negative of current portfolio_drawdown" but
+the calculation is -(expenses - net_income_after_tax). This seems to be the cash flow
+into/out of the portfolio.
+
+3. portfolio_return calculation: This is final_value - starting_value - net_income, which
+represents the market return component.
+
+The main issue appears to be in the portfolio_inflow calculation where taxes are being
+subtracted twice.
+
+Other problems:
+
+1) Tax is not calculated properly. Currently it does:
+
+- Find net income
+- Add income tax
+- That's the portfolio drawdown
+- Calculate CG tax on that drawdown
+- Then total everything up
+
+Problem: We need to get taxed on the additional drawdown of the CG tax!
+
+2) CA state tax appears to be wrong. Tax on 18942.81 should be $270 but is calculated as
+-192.3. 31621.21 should be $646 but is calculated as 590.80. Fed tax is close to correct.
+
+3) The allocation put in the data_debug CSV file is in a bad format. It takes up multiple
+columns without assocatiated headers.
+
+4) Do we believe what is happening when a portfolio is rebalanced? Rather than putting
+% in the debug_data CSV it woudl be nice to see $$ so we can track what each asset is doing.
+Also include cost basis. This is why I wanted it to be a JSON file originally so we can include
+more details. Go ahead and make it a JSON file with full details.
+
+Things to add:
+
+- An asset class that throws off dividends and then has a big return at the end (e.g. private
+equity of real estate sale)
+
+- Include a list of dividend % per year, not just % +/- %
+
+- Target portfolio allotments that can change over total_income (e.g. stocks 60, bonds 40)

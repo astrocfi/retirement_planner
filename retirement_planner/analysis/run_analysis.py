@@ -31,9 +31,20 @@ def add_common_arguments(parser):
         help="Directory to save analysis results"
     )
     parser.add_argument(
-        "--verbose",
+        "-v", "--verbose",
+        action="count",
+        default=0,
+        help="Increase verbosity (-v for INFO, -vv for DEBUG)"
+    )
+    parser.add_argument(
+        "--max-workers",
+        type=int,
+        help="Maximum number of parallel workers for Monte Carlo simulation (default: CPU count)"
+    )
+    parser.add_argument(
+        "--enable-withdrawal-optimization",
         action="store_true",
-        help="Enable verbose output"
+        help="Enable withdrawal optimization (disabled by default for faster analysis)"
     )
 
 def validate_configs(args):
@@ -41,7 +52,15 @@ def validate_configs(args):
     from retirement_planner.core.config import UnifiedConfigLoader
     from retirement_planner.core.logging import RetirementPlannerLogger, LogLevel
 
-    logger = RetirementPlannerLogger(log_level=LogLevel.INFO if args.verbose else LogLevel.WARNING)
+    # Set log level based on verbosity count
+    if args.verbose >= 2:
+        log_level = LogLevel.DEBUG
+    elif args.verbose == 1:
+        log_level = LogLevel.INFO
+    else:
+        log_level = LogLevel.WARNING
+
+    logger = RetirementPlannerLogger(log_level=log_level)
     success = True
 
     try:
@@ -125,17 +144,23 @@ def analyze(args):
         from retirement_planner.analysis.withdrawal import WithdrawalOptimizer
         from retirement_planner.reports.generator import ReportGenerator, ReportConfig
 
-        logger = RetirementPlannerLogger(log_level=LogLevel.INFO if args.verbose else LogLevel.WARNING)
+        # Set log level based on verbosity count
+        if args.verbose >= 2:
+            log_level = LogLevel.DEBUG
+        elif args.verbose == 1:
+            log_level = LogLevel.INFO
+        else:
+            log_level = LogLevel.WARNING
+
+        logger = RetirementPlannerLogger(log_level=log_level)
         logger.log(LogLevel.INFO, "Starting comprehensive retirement analysis")
 
         logger.log(LogLevel.INFO, f"Loading configuration from: {', '.join(args.config)}")
         config_loader = UnifiedConfigLoader()
         config_loader.load_from_files(args.config)
 
-        # Set the random seed ONCE at the very start
-        simulation_data = config_loader.get_section('simulation')
-        random_seed = simulation_data.get("random_seed", 42)
-        np.random.seed(random_seed)
+        # Note: Random seed is handled by individual components, not set globally
+        # to ensure proper scenario variation
 
         logger.log(LogLevel.INFO, "Loading person profile...")
         person_data = config_loader.get_section('person')
@@ -157,80 +182,98 @@ def analyze(args):
         events_data = config_loader.get_section('events')
         event_manager = EventManager()
 
-        # Process income events
-        for event_data in events_data.get("income", []):
-            period = Period(**event_data["period"])
-            event = Event(
-                name=event_data["name"],
-                event_type=EventType(event_data["event_type"]),
-                period=period,
-                amount=event_data["amount"],
-                probability=event_data.get("probability", 1.0),
-                inflation_adjustment=False,
-                description=event_data.get("description", ""),
-                metadata=event_data.get("metadata", {})
-            )
-            event_manager.add_event(event)
+        # Process events (new unified list format)
+        if isinstance(events_data, list):
+            # New format: list of events
+            for event_data in events_data:
+                period = Period(**event_data["period"])
+                event = Event(
+                    name=event_data["name"],
+                    event_type=EventType(event_data["event_type"]),
+                    period=period,
+                    amount=event_data["amount"],
+                    probability=event_data.get("probability", 1.0),
+                    inflation_adjustment=False,
+                    description=event_data.get("description", ""),
+                    metadata=event_data.get("metadata", {})
+                )
+                event_manager.add_event(event)
+        else:
+            # Legacy format: dictionary with categories
+            # Process income events
+            for event_data in events_data.get("income", []):
+                period = Period(**event_data["period"])
+                event = Event(
+                    name=event_data["name"],
+                    event_type=EventType(event_data["event_type"]),
+                    period=period,
+                    amount=event_data["amount"],
+                    probability=event_data.get("probability", 1.0),
+                    inflation_adjustment=False,
+                    description=event_data.get("description", ""),
+                    metadata=event_data.get("metadata", {})
+                )
+                event_manager.add_event(event)
 
-        # Process expense events
-        for event_data in events_data.get("expenses", []):
-            period = Period(**event_data["period"])
-            event = Event(
-                name=event_data["name"],
-                event_type=EventType(event_data["event_type"]),
-                period=period,
-                amount=event_data["amount"],
-                probability=event_data.get("probability", 1.0),
-                inflation_adjustment=False,
-                description=event_data.get("description", ""),
-                metadata=event_data.get("metadata", {})
-            )
-            event_manager.add_event(event)
+            # Process expense events
+            for event_data in events_data.get("expenses", []):
+                period = Period(**event_data["period"])
+                event = Event(
+                    name=event_data["name"],
+                    event_type=EventType(event_data["event_type"]),
+                    period=period,
+                    amount=event_data["amount"],
+                    probability=event_data.get("probability", 1.0),
+                    inflation_adjustment=False,
+                    description=event_data.get("description", ""),
+                    metadata=event_data.get("metadata", {})
+                )
+                event_manager.add_event(event)
 
-        # Process asset events
-        for event_data in events_data.get("assets", []):
-            period = Period(**event_data["period"])
-            event = Event(
-                name=event_data["name"],
-                event_type=EventType(event_data["event_type"]),
-                period=period,
-                amount=event_data["amount"],
-                probability=event_data.get("probability", 1.0),
-                inflation_adjustment=False,
-                description=event_data.get("description", ""),
-                metadata=event_data.get("metadata", {})
-            )
-            event_manager.add_event(event)
+            # Process asset events
+            for event_data in events_data.get("assets", []):
+                period = Period(**event_data["period"])
+                event = Event(
+                    name=event_data["name"],
+                    event_type=EventType(event_data["event_type"]),
+                    period=period,
+                    amount=event_data["amount"],
+                    probability=event_data.get("probability", 1.0),
+                    inflation_adjustment=False,
+                    description=event_data.get("description", ""),
+                    metadata=event_data.get("metadata", {})
+                )
+                event_manager.add_event(event)
 
-        # Process liability events
-        for event_data in events_data.get("liabilities", []):
-            period = Period(**event_data["period"])
-            event = Event(
-                name=event_data["name"],
-                event_type=EventType(event_data["event_type"]),
-                period=period,
-                amount=event_data["amount"],
-                probability=event_data.get("probability", 1.0),
-                inflation_adjustment=False,
-                description=event_data.get("description", ""),
-                metadata=event_data.get("metadata", {})
-            )
-            event_manager.add_event(event)
+            # Process liability events
+            for event_data in events_data.get("liabilities", []):
+                period = Period(**event_data["period"])
+                event = Event(
+                    name=event_data["name"],
+                    event_type=EventType(event_data["event_type"]),
+                    period=period,
+                    amount=event_data["amount"],
+                    probability=event_data.get("probability", 1.0),
+                    inflation_adjustment=False,
+                    description=event_data.get("description", ""),
+                    metadata=event_data.get("metadata", {})
+                )
+                event_manager.add_event(event)
 
-        # Process benefit events
-        for event_data in events_data.get("benefits", []):
-            period = Period(**event_data["period"])
-            event = Event(
-                name=event_data["name"],
-                event_type=EventType(event_data["event_type"]),
-                period=period,
-                amount=event_data["amount"],
-                probability=event_data.get("probability", 1.0),
-                inflation_adjustment=False,
-                description=event_data.get("description", ""),
-                metadata=event_data.get("metadata", {})
-            )
-            event_manager.add_event(event)
+            # Process benefit events
+            for event_data in events_data.get("benefits", []):
+                period = Period(**event_data["period"])
+                event = Event(
+                    name=event_data["name"],
+                    event_type=EventType(event_data["event_type"]),
+                    period=period,
+                    amount=event_data["amount"],
+                    probability=event_data.get("probability", 1.0),
+                    inflation_adjustment=False,
+                    description=event_data.get("description", ""),
+                    metadata=event_data.get("metadata", {})
+                )
+                event_manager.add_event(event)
 
         logger.log(LogLevel.INFO, f"Loaded {len(event_manager.events)} events (all in today's dollars)")
 
@@ -271,7 +314,14 @@ def analyze(args):
                 "volatility": perf_data["volatility"],
                 "correlation": perf_data.get("correlation", {}),
                 "description": perf_data.get("description", ""),
-                "metadata": {**perf_data, "notes": asset_data.get("notes", "")}
+                "metadata": {**perf_data, "notes": asset_data.get("notes", "")},
+                # Tax-related fields
+                "cost_basis": asset_data.get("cost_basis", current_value),
+                "dividend_rate": perf_data.get("dividend_rate", 0.0),
+                "tax_free": perf_data.get("tax_free", False),
+                "liquid": perf_data.get("liquid", True),
+                "liquid_from_year": perf_data.get("liquid_from_year"),
+                "dividend_reinvestment": perf_data.get("dividend_reinvestment", True)
             }
 
             asset = asset_factory.create_from_dict(asset_config)
@@ -315,20 +365,35 @@ def analyze(args):
             seed=simulation_data.get("random_seed", 42)
         )
 
-        market_simulator = MarketSimulator(market_model)
+        # Create tax calculator
+        from retirement_planner.tax.calculator import TaxCalculator
+        tax_calculator = TaxCalculator(
+            filing_status=person.tax_filing_status,
+            state=person.state_of_residence
+        )
 
+        # Create unified market simulator with tax calculator
+        market_simulator = MarketSimulator(market_model, tax_calculator)
+
+        # Create unified Monte Carlo engine with tax calculator
         engine = MonteCarloEngine(
             scenario_generator=scenario_generator,
             market_simulator=market_simulator,
-            num_scenarios=simulation_data.get("num_scenarios", 10000)
+            num_scenarios=simulation_data.get("num_scenarios", 10000),
+            tax_calculator=tax_calculator,
+            max_workers=args.max_workers
         )
 
         logger.log(LogLevel.INFO, f"Created Monte Carlo engine with {simulation_data.get('num_scenarios', 10000)} scenarios")
 
         logger.log(LogLevel.INFO, "Running Monte Carlo simulation...")
         simulation_result = engine.run_simulation(
-            portfolio, person.get_working_years() + person.get_retirement_years(), event_manager, person,
-            inflation_mean=inflation_rate, inflation_volatility=inflation_volatility
+            portfolio=portfolio,
+            time_horizon=person.get_working_years() + person.get_retirement_years(),
+            event_manager=event_manager,
+            person=person,
+            inflation_mean=inflation_rate,
+            inflation_volatility=inflation_volatility
         )
         logger.log(LogLevel.SUCCESS, f"Simulation completed with {len(simulation_result.scenarios)} successful scenarios")
 
@@ -341,15 +406,19 @@ def analyze(args):
         )
         logger.log(LogLevel.SUCCESS, f"Analysis completed. Success rate: {analysis_result.overall_success_rate:.1%}")
 
-        logger.log(LogLevel.INFO, "Running withdrawal optimization...")
-        optimizer = WithdrawalOptimizer()
-        withdrawal_result = optimizer.optimize_withdrawal_rate(
-            portfolio=portfolio,
-            simulation_result=simulation_result,
-            event_manager=event_manager,
-            person=person
-        )
-        logger.log(LogLevel.SUCCESS, f"Withdrawal optimization completed. Optimal rate: {withdrawal_result.optimal_withdrawal_rate:.1%}")
+        withdrawal_result = None
+        if args.enable_withdrawal_optimization:
+            logger.log(LogLevel.INFO, "Running withdrawal optimization...")
+            optimizer = WithdrawalOptimizer()
+            withdrawal_result = optimizer.optimize_withdrawal_rate(
+                portfolio=portfolio,
+                simulation_result=simulation_result,
+                event_manager=event_manager,
+                person=person
+            )
+            logger.log(LogLevel.SUCCESS, f"Withdrawal optimization completed. Optimal rate: {withdrawal_result.optimal_withdrawal_rate:.1%}")
+        else:
+            logger.log(LogLevel.INFO, "Skipping withdrawal optimization (use --enable-withdrawal-optimization to enable)")
 
         logger.log(LogLevel.INFO, "Generating reports...")
         report_config = ReportConfig(
@@ -373,8 +442,11 @@ def analyze(args):
         print("ANALYSIS COMPLETE")
         print("=" * 60)
         print(f"Success Rate: {analysis_result.overall_success_rate:.1%}")
-        print(f"Optimal Withdrawal Rate: {withdrawal_result.optimal_withdrawal_rate:.1%}")
-        print(f"Optimal Annual Withdrawal: ${withdrawal_result.optimal_annual_withdrawal:,.0f}")
+        if withdrawal_result:
+            print(f"Optimal Withdrawal Rate: {withdrawal_result.optimal_withdrawal_rate:.1%}")
+            print(f"Optimal Annual Withdrawal: ${withdrawal_result.optimal_annual_withdrawal:,.0f}")
+        else:
+            print("Withdrawal optimization skipped")
         print(f"Reports saved to: {output_dir}")
         print("=" * 60)
 

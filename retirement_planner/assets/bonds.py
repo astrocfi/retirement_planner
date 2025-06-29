@@ -113,10 +113,10 @@ class Bond(Asset):
         maturity_date = self.get_metadata_field('maturity_date')
 
         # Simplified YTM calculation
-        if maturity_date and self.current_value != face_value:
+        if maturity_date and self.current_value != face_value and self.current_value > 0:
             # This is a simplified calculation - real YTM would be more complex
             return coupon_rate + (face_value - self.current_value) / self.current_value
-        elif self.current_value != face_value:
+        elif self.current_value != face_value and self.current_value > 0:
             # No maturity date but current value differs from face value
             return coupon_rate + (face_value - self.current_value) / self.current_value
         return coupon_rate

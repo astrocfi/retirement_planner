@@ -81,8 +81,16 @@ class Asset:
     correlation: Dict[str, float] = field(default_factory=dict)
     description: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
+    # Tax-related fields
+    cost_basis: float = 0.0
+    dividend_rate: float = 0.0
+    dividend_volatility: float = 0.0
+    tax_free: bool = False
+    liquid: bool = True
+    liquid_from_year: Optional[int] = None
+    dividend_reinvestment: bool = True
 
-    def __init__(self, name: str, asset_type: AssetType, current_value: float, expected_return: float, volatility: float, correlation: Dict[str, float] = None, description: Optional[str] = None, metadata: Dict[str, Any] = None, **kwargs):
+    def __init__(self, name: str, asset_type: AssetType, current_value: float, expected_return: float, volatility: float, correlation: Dict[str, float] = None, description: Optional[str] = None, metadata: Dict[str, Any] = None, cost_basis: float = None, dividend_rate: float = 0.0, dividend_volatility: float = 0.0, tax_free: bool = False, liquid: bool = True, liquid_from_year: Optional[int] = None, dividend_reinvestment: bool = True, **kwargs):
         """Initialize Asset with support for additional fields in metadata."""
         # Store additional fields in metadata
         if metadata is None:
@@ -93,6 +101,10 @@ class Asset:
         # Add any additional kwargs to metadata
         metadata.update(kwargs)
 
+        # Set cost basis to current value if not specified
+        if cost_basis is None:
+            cost_basis = current_value
+
         # Use object.__setattr__ to set fields since this is a frozen dataclass
         object.__setattr__(self, 'name', name)
         object.__setattr__(self, 'asset_type', asset_type)
@@ -102,6 +114,13 @@ class Asset:
         object.__setattr__(self, 'correlation', correlation)
         object.__setattr__(self, 'description', description)
         object.__setattr__(self, 'metadata', metadata)
+        object.__setattr__(self, 'cost_basis', cost_basis)
+        object.__setattr__(self, 'dividend_rate', dividend_rate)
+        object.__setattr__(self, 'dividend_volatility', dividend_volatility)
+        object.__setattr__(self, 'tax_free', tax_free)
+        object.__setattr__(self, 'liquid', liquid)
+        object.__setattr__(self, 'liquid_from_year', liquid_from_year)
+        object.__setattr__(self, 'dividend_reinvestment', dividend_reinvestment)
 
         # Run validation
         self.__post_init__()
@@ -113,12 +132,18 @@ class Asset:
         validator.add_field_validator('current_value').add_rule(RangeRule('current_value', min_value=0))
         validator.add_field_validator('expected_return').add_rule(RangeRule('expected_return', min_value=-1, max_value=2))
         validator.add_field_validator('volatility').add_rule(RangeRule('volatility', min_value=0, max_value=2))
+        validator.add_field_validator('cost_basis').add_rule(RangeRule('cost_basis', min_value=0))
+        validator.add_field_validator('dividend_rate').add_rule(RangeRule('dividend_rate', min_value=0, max_value=1))
+        validator.add_field_validator('dividend_volatility').add_rule(RangeRule('dividend_volatility', min_value=0, max_value=1))
 
         result = validator.validate({
             'name': self.name,
             'current_value': self.current_value,
             'expected_return': self.expected_return,
-            'volatility': self.volatility
+            'volatility': self.volatility,
+            'cost_basis': self.cost_basis,
+            'dividend_rate': self.dividend_rate,
+            'dividend_volatility': self.dividend_volatility
         })
 
         if not result.is_valid:
@@ -154,11 +179,19 @@ class Asset:
             'asset_type': self.asset_type.value,
             'tax_rate': self._get_tax_rate(),
             'tax_deferred': self._is_tax_deferred(),
-            'tax_exempt': self._is_tax_exempt()
+            'tax_exempt': self._is_tax_exempt(),
+            'tax_free': self.tax_free,
+            'liquid': self.liquid,
+            'liquid_from_year': self.liquid_from_year,
+            'dividend_rate': self.dividend_rate,
+            'dividend_reinvestment': self.dividend_reinvestment
         }
 
     def _get_tax_rate(self) -> float:
         """Get applicable tax rate for this asset."""
+        if self.tax_free:
+            return 0.0
+
         # Default implementation - subclasses should override
         if self.asset_type == AssetType.BOND:
             return 0.15  # Capital gains rate for bonds
@@ -174,6 +207,43 @@ class Asset:
     def _is_tax_exempt(self) -> bool:
         """Check if asset is tax-exempt."""
         return False
+
+    def is_liquid_at_year(self, year: int) -> bool:
+        """Check if asset is liquid at the given year."""
+        if not self.liquid:
+            return False
+        if self.liquid_from_year is not None:
+            return year >= self.liquid_from_year
+        return True
+
+    def get_dividend_income(self, year: Optional[int] = None) -> float:
+        """Get annual dividend/interest income with optional stochastic dividend rates."""
+        if self.tax_free:
+            return 0.0  # Tax-free assets don't generate taxable income
+
+        # If dividend volatility is specified, generate stochastic dividend rate
+        if self.dividend_volatility > 0 and year is not None:
+            # Use year as seed for consistent random generation across scenarios
+            np.random.seed(year)
+            stochastic_dividend_rate = np.random.normal(self.dividend_rate, self.dividend_volatility)
+            # Ensure dividend rate is non-negative and reasonable
+            stochastic_dividend_rate = max(0.0, min(stochastic_dividend_rate, 0.5))
+            return self.current_value * stochastic_dividend_rate
+
+        # Default to fixed dividend rate
+        return self.current_value * self.dividend_rate
+
+    def get_capital_gains(self) -> float:
+        """Get unrealized capital gains."""
+        if self.tax_free:
+            return 0.0  # Tax-free assets don't have capital gains
+        return max(0.0, self.current_value - self.cost_basis)
+
+    def get_capital_gains_rate(self) -> float:
+        """Get capital gains tax rate."""
+        if self.tax_free:
+            return 0.0
+        return 0.15  # Long-term capital gains rate
 
     def calculate_future_value(self, years: int, inflation_rate: float = 0.02) -> float:
         """Calculate future value of the asset."""
@@ -227,7 +297,14 @@ class AssetFactory:
             volatility=data['volatility'],
             correlation=data.get('correlation', {}),
             description=data.get('description'),
-            metadata=data.get('metadata', {})
+            metadata=data.get('metadata', {}),
+            cost_basis=data.get('cost_basis'),
+            dividend_rate=data.get('dividend_rate', 0.0),
+            dividend_volatility=data.get('dividend_volatility', 0.0),
+            tax_free=data.get('tax_free', False),
+            liquid=data.get('liquid', True),
+            liquid_from_year=data.get('liquid_from_year'),
+            dividend_reinvestment=data.get('dividend_reinvestment', True)
         )
 
 

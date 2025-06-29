@@ -30,17 +30,32 @@ assets:
 
 # Events Section
 events:
-  income: []
+  income:
+    - name: "sell_plane"
+      event_type: "income"
+      description: "Sell a plane"
+      period:
+        start_age: 85
+        end_age: 85
+      amount: 300000.0
+      probability: 1.0
   expenses:
     - name: "retirement_expenses"
       event_type: "expense"
+      description: "Retirement living expenses"
       period:
         start_age: 65
         end_age: 95
-        description: "Retirement living expenses"
-      amount: 80000.0
+      amount: 40000.0
       probability: 1.0
-      description: "Annual retirement expenses (today's dollars)"
+    - name: "buy_plane"
+      event_type: "expense"
+      description: "Buy a plane"
+      period:
+        start_age: 75
+        end_age: 75
+      amount: 400000.0
+      probability: 1.0
   assets: []
   liabilities: []
   benefits: []

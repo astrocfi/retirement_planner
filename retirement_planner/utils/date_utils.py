@@ -33,8 +33,8 @@ class AgePeriod:
         if not result.is_valid:
             raise ValidationError(f"Age period validation failed: {result.errors}")
 
-        if self.start_age >= self.end_age:
-            raise ValidationError("Start age must be before end age")
+        if self.start_age > self.end_age:
+            raise ValidationError("Start age must be less than or equal to end age")
 
 
 @dataclass(frozen=True)

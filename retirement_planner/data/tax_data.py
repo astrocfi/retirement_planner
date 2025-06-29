@@ -43,8 +43,8 @@ class TaxDataError(DataError):
 class TaxBracket:
     """Individual tax bracket with rate and income range."""
 
-    bracket_min: float
-    bracket_max: Optional[float]
+    min: float
+    max: Optional[float]
     rate: float
     filing_status: str
 
@@ -53,13 +53,13 @@ class TaxBracket:
         validator = Validator()
 
         # Add field validators
-        validator.add_field_validator("bracket_min").add_rule(RequiredRule("bracket_min")).add_rule(RangeRule("bracket_min", 0.0))
+        validator.add_field_validator("min").add_rule(RequiredRule("min")).add_rule(RangeRule("min", 0.0))
         validator.add_field_validator("rate").add_rule(RequiredRule("rate")).add_rule(RangeRule("rate", 0.0, 1.0))
         validator.add_field_validator("filing_status").add_rule(RequiredRule("filing_status")).add_rule(TypeRule("filing_status", str))
 
         # Validate the data
         data = {
-            "bracket_min": self.bracket_min,
+            "min": self.min,
             "rate": self.rate,
             "filing_status": self.filing_status
         }
@@ -69,30 +69,30 @@ class TaxBracket:
             raise TaxDataError(f"Invalid tax bracket: {[e.message for e in result.errors]}")
 
         # Validate bracket range
-        if self.bracket_max is not None and self.bracket_min >= self.bracket_max:
+        if self.max is not None and self.min >= self.max:
             raise TaxDataError("Bracket minimum must be less than bracket maximum")
 
     def contains_income(self, income: float) -> bool:
         """Check if income falls within this bracket."""
-        if income < self.bracket_min:
+        if income < self.min:
             return False
-        if self.bracket_max is None:
+        if self.max is None:
             return True
-        return income <= self.bracket_max
+        return income <= self.max
 
     def calculate_tax(self, income: float) -> float:
         """Calculate tax for income in this bracket."""
         if not self.contains_income(income):
             return 0.0
 
-        taxable_amount = income - self.bracket_min
+        taxable_amount = income - self.min
         return taxable_amount * self.rate
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
-            "bracket_min": self.bracket_min,
-            "bracket_max": self.bracket_max,
+            "min": self.min,
+            "max": self.max,
             "rate": self.rate,
             "filing_status": self.filing_status
         }
@@ -138,7 +138,7 @@ class TaxBrackets:
 
         # Check that brackets are consecutive
         for i in range(len(self.brackets) - 1):
-            if self.brackets[i].bracket_max != self.brackets[i + 1].bracket_min:
+            if self.brackets[i].max != self.brackets[i + 1].min:
                 raise TaxDataError("Tax brackets must be consecutive")
 
         # Check that all brackets have same filing status
@@ -165,14 +165,14 @@ class TaxBrackets:
             if remaining_income <= 0:
                 break
 
-            if bracket.bracket_max is None:
+            if bracket.max is None:
                 # Top bracket
                 taxable_amount = remaining_income
                 total_tax += taxable_amount * bracket.rate
                 break
             else:
                 # Regular bracket
-                bracket_income = min(remaining_income, bracket.bracket_max - bracket.bracket_min)
+                bracket_income = min(remaining_income, bracket.max - bracket.min)
                 total_tax += bracket_income * bracket.rate
                 remaining_income -= bracket_income
 
@@ -358,8 +358,8 @@ class TaxDataLoader:
             brackets = []
             for bracket_data in data['brackets']:
                 bracket = TaxBracket(
-                    bracket_min=bracket_data['bracket_min'],
-                    bracket_max=bracket_data.get('bracket_max'),
+                    min=bracket_data['min'],
+                    max=bracket_data.get('max'),
                     rate=bracket_data['rate'],
                     filing_status=bracket_data['filing_status']
                 )
@@ -510,8 +510,8 @@ class TaxDataLoader:
                                     rate = float(rate_match.group(1)) / 100.0
 
                                     brackets.append({
-                                        'bracket_min': bracket_min,
-                                        'bracket_max': bracket_max,
+                                        'min': bracket_min,
+                                        'max': bracket_max,
                                         'rate': rate
                                     })
                         except (ValueError, AttributeError):
@@ -521,12 +521,12 @@ class TaxDataLoader:
                 raise DataError(f"Could not extract tax brackets from IRS page for {year}")
 
             # Sort brackets by minimum value
-            brackets.sort(key=lambda x: x['bracket_min'])
+            brackets.sort(key=lambda x: x['min'])
 
             # Create TaxBrackets object
             tax_brackets = TaxBrackets(
                 year=year,
-                brackets=[TaxBracket(b['bracket_min'], b['bracket_max'], b['rate'], filing_status) for b in brackets],
+                brackets=[TaxBracket(b['min'], b['max'], b['rate'], filing_status) for b in brackets],
                 filing_status=filing_status,
                 standard_deduction=14600.0,  # 2024 default
                 personal_exemption=0.0

@@ -353,6 +353,13 @@ class TestAgePeriod:
         with pytest.raises(ValidationError):
             AgePeriod(start_age=65, end_age=30)  # Start after end
 
+    def test_age_period_single_year(self):
+        """Test AgePeriod creation for single year."""
+        period = AgePeriod(start_age=65, end_age=65, description="Single year")
+        assert period.start_age == 65
+        assert period.end_age == 65
+        assert period.description == "Single year"
+
     def test_age_period_immutability(self):
         """Test AgePeriod immutability."""
         period = AgePeriod(start_age=30, end_age=65)

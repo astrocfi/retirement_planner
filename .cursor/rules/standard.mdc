@@ -15,23 +15,30 @@ This rule is useful for all files.
 - Reply in the first person. Don't say that "you" can do the work but say "I" can do the work.
 - Take responsibility for your actions. You wrote all of this code and tests. If something is wrong, it's your fault. Say so.
 - Don't tell me that I'm right just because I pointed something out. I know that I'm right. Don't be obsequious. I don't need your approval.
+- When asked a question, always look at the code, don't just use your own memory of how you think things work.
 
 ## Testing Philosophy
 - Write tests based on semantic behavior, not implementation details.
 - Avoid mocks unless absolutely necessary for external dependencies.
 - Focus on testing what the code should do, not how it does it.
 - Ensure high test coverage through natural test scenarios.
+- Whenever fixing tests, always end by running all of the tests for the entire program and fixing any bugs founds. Don't assume that you
+  can run only tests for the part of the code you're modifying.
+- When changing tests, do not put any comments in the code or name any functions implying why the test was changed.
 
 ## Code Quality
 - All code must be class-based with no duplication.
 - Use comprehensive type hints throughout.
 - Follow immutable data patterns for financial structures.
 - Implement proper error handling with custom exceptions.
+- In comments or docstrings never discuss the way the code used to be.
+- Do not consider backwards compatibility. Backwards compatibility is irrelevant.
 
 ## Documentation
 - Update all design files (CODE_INVENTORY.md, DEVELOPMENT_PLAN.md, PACKAGE_STRUCTURE.md, REQUIREMENTS.md) when implementing features.
 - Mark completed items with ✅ status indicators.
 - Keep documentation consistent across all files.
+- Never discuss the way the code used to be or anything about backwards compatibility.
 
 ## Development Process
 - Follow the phased development plan strictly.

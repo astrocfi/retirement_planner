@@ -1,21 +1,25 @@
 # Zero Returns Asset Performance Scenario
-# 0% returns and 0% volatility for both assets
+# No growth, only dividends/coupons
 
 asset_performance:
   - type: "stocks"
     asset_type: "equity"
     expected_return: 0.00
     volatility: 0.00
+    dividend_rate: 0.02
+    dividend_volatility: 0.005
     correlation:
       stocks: 1.0
       bonds: 0.0
-    description: "US large cap stocks (zero returns)"
+    description: "US large cap stocks (no growth)"
 
   - type: "bonds"
     asset_type: "fixed_income"
     expected_return: 0.00
     volatility: 0.00
+    dividend_rate: 0.03
+    dividend_volatility: 0.002
     correlation:
       stocks: 0.0
       bonds: 1.0
-    description: "US investment grade bonds (zero returns)"
+    description: "US investment grade bonds (no growth)"

@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Any
+import os
+from retirement_planner.utils.file_utils import YamlLoader
 
 class StateTax(ABC):
     """
@@ -38,20 +40,41 @@ class StateTax(ABC):
 
 class CaliforniaTax(StateTax):
     """
-    California-specific tax calculations.
+    California-specific tax calculations loaded from configuration file.
     """
-    def __init__(self):
+
+    def __init__(self, config_path: str = None):
         super().__init__(state_code="CA", state_name="California")
+        if config_path is None:
+            config_path = os.path.join(os.path.dirname(__file__), '../data/defaults/tax_data.yaml')
+        self.config_path = os.path.abspath(config_path)
+        self.tax_data = YamlLoader.load_yaml(self.config_path)
+
+    def _get_california_config(self, year: int, filing_status: str) -> dict:
+        data = self.tax_data.get('california_tax_brackets', {})
+        if data.get('year') != year or data.get('filing_status') != filing_status:
+            raise NotImplementedError(f"No CA config for year {year} and status {filing_status}")
+        return data
 
     def calculate_income_tax(self, income: float, filing_status: str, **kwargs) -> float:
-        brackets = self.get_tax_brackets(year=kwargs.get('year', 2024), filing_status=filing_status)
+        config = self._get_california_config(kwargs.get('year', 2024), filing_status)
+        brackets = config['brackets']
+        standard_deduction = config.get('standard_deduction', 0.0)
+
+        # Apply standard deduction to get taxable income
+        taxable_income = max(0.0, income - standard_deduction)
+
+        # If no taxable income after deduction, no tax
+        if taxable_income <= 0:
+            return 0.0
+
         tax = 0.0
-        remaining_income = income
+        remaining_income = taxable_income
         for bracket in brackets:
             lower = bracket['min']
-            upper = bracket['max']
+            upper = bracket['max'] if bracket['max'] is not None else float('inf')
             rate = bracket['rate']
-            if income > lower:
+            if taxable_income > lower:
                 taxable = min(remaining_income, upper - lower)
                 tax += taxable * rate
                 remaining_income -= taxable
@@ -60,7 +83,9 @@ class CaliforniaTax(StateTax):
         return max(tax, 0.0)
 
     def calculate_capital_gains_tax(self, gains: float, long_term: bool = True, **kwargs) -> float:
-        # CA taxes capital gains as regular income
+        # CA taxes capital gains as regular income, so this method is deprecated
+        # Capital gains should be included in total income for tax calculation
+        # This method is kept for compatibility but should not be used directly
         return self.calculate_income_tax(gains, kwargs.get('filing_status', 'single'), year=kwargs.get('year', 2024))
 
     def calculate_property_tax(self, property_value: float, **kwargs) -> float:
@@ -76,26 +101,9 @@ class CaliforniaTax(StateTax):
         return amount * (base_rate + local_rate)
 
     def get_tax_brackets(self, year: int, filing_status: str) -> List[Dict[str, Any]]:
-        # 2024 CA brackets (simplified, single filer)
-        # Real implementation would load from data
-        if filing_status == 'single':
-            return [
-                {'min': 0, 'max': 10412, 'rate': 0.01},
-                {'min': 10412, 'max': 24684, 'rate': 0.02},
-                {'min': 24684, 'max': 38959, 'rate': 0.04},
-                {'min': 38959, 'max': 54081, 'rate': 0.06},
-                {'min': 54081, 'max': 68250, 'rate': 0.08},
-                {'min': 68250, 'max': 349137, 'rate': 0.093},
-                {'min': 349137, 'max': 418961, 'rate': 0.103},
-                {'min': 418961, 'max': 698271, 'rate': 0.113},
-                {'min': 698271, 'max': float('inf'), 'rate': 0.123},
-            ]
-        # Add other filing statuses as needed
-        raise NotImplementedError(f"Brackets for filing status {filing_status} not implemented.")
+        config = self._get_california_config(year, filing_status)
+        return config['brackets']
 
     def get_deductions(self, year: int, filing_status: str) -> Dict[str, float]:
-        # 2024 CA standard deduction (single)
-        if filing_status == 'single':
-            return {'standard_deduction': 5202.0}
-        # Add other filing statuses as needed
-        raise NotImplementedError(f"Deductions for filing status {filing_status} not implemented.")
+        config = self._get_california_config(year, filing_status)
+        return {'standard_deduction': config.get('standard_deduction', 0.0)}

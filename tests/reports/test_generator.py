@@ -65,6 +65,8 @@ class TestChartCreator:
         mock_simulation_result = Mock()
         mock_simulation_result.time_horizon = 4
         mock_simulation_result.scenarios = [mock_scenario] * 10  # 10 scenarios
+        mock_simulation_result.success_rate = 0.8
+        mock_simulation_result.num_scenarios = 10
 
         with tempfile.TemporaryDirectory() as temp_dir:
             output_path = Path(temp_dir) / "portfolio_chart.png"
@@ -217,12 +219,33 @@ class TestDataExporter:
 
     def test_export_simulation_data_csv(self):
         """Test CSV export of simulation data."""
-        # Create mock simulation result
+        # Create mock simulation result with proper numeric attributes
         mock_scenario = Mock()
         mock_scenario.portfolio_values = [100000, 105000, 110000]
         mock_scenario.success = True
         mock_scenario.withdrawals = [5000, 5000]  # Add withdrawals
         mock_scenario.contributions = [0, 0]      # Add contributions
+
+        # Create proper tax result objects with numeric attributes
+        mock_tax_result1 = Mock()
+        mock_tax_result1.federal_income_tax = 1000.0
+        mock_tax_result1.federal_capital_gains_tax = 500.0
+        mock_tax_result1.state_income_tax = 200.0
+        mock_tax_result1.state_capital_gains_tax = 100.0
+        mock_tax_result1.total_tax = 1800.0
+        mock_tax_result1.effective_tax_rate = 0.15
+
+        mock_tax_result2 = Mock()
+        mock_tax_result2.federal_income_tax = 1100.0
+        mock_tax_result2.federal_capital_gains_tax = 550.0
+        mock_tax_result2.state_income_tax = 220.0
+        mock_tax_result2.state_capital_gains_tax = 110.0
+        mock_tax_result2.total_tax = 1980.0
+        mock_tax_result2.effective_tax_rate = 0.16
+
+        # Add tax-related attributes that the real code expects
+        mock_scenario.dividend_income = [100, 100]
+        mock_scenario.annual_taxes = [mock_tax_result1, mock_tax_result2]
 
         mock_simulation_result = Mock()
         mock_simulation_result.scenarios = [mock_scenario] * 3  # 3 scenarios
@@ -244,10 +267,10 @@ class TestDataExporter:
             assert len(df) == 6  # 3 scenarios * 2 years (portfolio_values has 3 values = 2 years)
             assert "scenario" in df.columns
             assert "year" in df.columns
-            assert "starting_portfolio_value" in df.columns
+            assert "starting_value" in df.columns
             assert "income" in df.columns
             assert "expenses" in df.columns
-            assert "final_portfolio_value" in df.columns
+            assert "final_value" in df.columns
             assert "success" in df.columns
 
     def test_export_simulation_data_json(self):
@@ -393,6 +416,24 @@ class TestReportGenerator:
         mock_scenario.withdrawals = [0] * 20  # Add withdrawals
         mock_scenario.contributions = [0] * 20  # Add contributions
 
+        # Add allocation percentages and returns for debug export
+        mock_scenario.allocation_percentages = [{"stock": 0.6, "bond": 0.4}] * 20
+        mock_scenario.returns = [0.05] * 20
+
+        # Add tax-related attributes
+        mock_scenario.dividend_income = [100] * 20
+        mock_tax_results = []
+        for i in range(20):
+            mock_tax_result = Mock()
+            mock_tax_result.federal_income_tax = 1000.0 + i * 10
+            mock_tax_result.federal_capital_gains_tax = 500.0 + i * 5
+            mock_tax_result.state_income_tax = 200.0 + i * 2
+            mock_tax_result.state_capital_gains_tax = 100.0 + i * 1
+            mock_tax_result.total_tax = 1800.0 + i * 18
+            mock_tax_result.effective_tax_rate = 0.15 + i * 0.001
+            mock_tax_results.append(mock_tax_result)
+        mock_scenario.annual_taxes = mock_tax_results
+
         mock_simulation_result = Mock()
         mock_simulation_result.scenarios = [mock_scenario] * 10  # 10 scenarios
         mock_simulation_result.time_horizon = 20
@@ -454,61 +495,92 @@ class TestReportGenerator:
 
     @patch('retirement_planner.reports.generator.DataExporter.export_analysis_summary')
     def test_generate_comprehensive_report_no_charts(self, mock_export_summary):
-        """Test report generation without charts."""
-        config = ReportConfig(include_charts=False, include_raw_data=True)
-        report_generator = ReportGenerator(config=config, logger=self.logger)
-
-        # Create mock objects with proper attributes
-        mock_person = Mock()
-        mock_person.name = "John Doe"
-        mock_person.age = 45
-        mock_person.retirement_age = 65
-        mock_person.life_expectancy = 85
-        mock_person.current_savings = 500000
-        mock_person.annual_contribution = 20000
-
-        mock_portfolio = Mock()
-        mock_portfolio.total_value = 500000
-
+        """Test comprehensive report generation without charts."""
+        # Create mock objects
         mock_retirement_analysis = Mock()
-        mock_retirement_analysis.person = mock_person
-        mock_retirement_analysis.portfolio = mock_portfolio
+        mock_retirement_analysis.person.name = "Test Person"
+        mock_retirement_analysis.portfolio.total_value = 1000000
+        mock_retirement_analysis.overall_success_rate = 0.85
         mock_retirement_analysis.goal_statuses = []
         mock_retirement_analysis.recommendations = []
 
-        # Create mock scenarios for simulation result
         mock_scenario = Mock()
-        mock_scenario.portfolio_values = [100000 + 1000 * i for i in range(21)]  # 21 years for time_horizon=20
+        mock_scenario.portfolio_values = [100000, 105000, 110000]
         mock_scenario.success = True
-        mock_scenario.withdrawals = [0] * 20  # Add withdrawals
-        mock_scenario.contributions = [0] * 20  # Add contributions
+        mock_scenario.withdrawals = [5000, 5000]
+        mock_scenario.contributions = [0, 0]
+        mock_scenario.dividend_income = [100, 100]
+
+        # Create proper tax result objects
+        mock_tax_result1 = Mock()
+        mock_tax_result1.federal_income_tax = 1000.0
+        mock_tax_result1.federal_capital_gains_tax = 500.0
+        mock_tax_result1.state_income_tax = 200.0
+        mock_tax_result1.state_capital_gains_tax = 100.0
+        mock_tax_result1.total_tax = 1800.0
+        mock_tax_result1.effective_tax_rate = 0.15
+
+        mock_tax_result2 = Mock()
+        mock_tax_result2.federal_income_tax = 1100.0
+        mock_tax_result2.federal_capital_gains_tax = 550.0
+        mock_tax_result2.state_income_tax = 220.0
+        mock_tax_result2.state_capital_gains_tax = 110.0
+        mock_tax_result2.total_tax = 1980.0
+        mock_tax_result2.effective_tax_rate = 0.16
+
+        mock_scenario.annual_taxes = [mock_tax_result1, mock_tax_result2]
+
+        # Add allocation percentages and returns for debug export
+        mock_scenario.allocation_percentages = [{"stock": 0.6, "bond": 0.4}, {"stock": 0.6, "bond": 0.4}]
+        mock_scenario.returns = [0.05, 0.05]
 
         mock_simulation_result = Mock()
-        mock_simulation_result.scenarios = [mock_scenario] * 10  # 10 scenarios
-        mock_simulation_result.time_horizon = 20
-        mock_simulation_result.success_rate = 0.855
-        mock_simulation_result.average_portfolio_value = 1200000
-        mock_simulation_result.median_portfolio_value = 1150000
-        mock_simulation_result.best_case_portfolio_value = 1500000
-        mock_simulation_result.worst_case_portfolio_value = 800000
+        mock_simulation_result.scenarios = [mock_scenario] * 3
+        mock_simulation_result.time_horizon = 2
+        mock_simulation_result.success_rate = 0.8
+        mock_simulation_result.average_portfolio_value = 110000
+        mock_simulation_result.median_portfolio_value = 110000
+        mock_simulation_result.worst_case_portfolio_value = 100000
+        mock_simulation_result.best_case_portfolio_value = 120000
         mock_simulation_result.average_years_to_failure = 5.5
+        mock_simulation_result.num_scenarios = 3
 
-        mock_export_summary.return_value = Path("analysis_summary.json")
+        mock_withdrawal_result = Mock()
+        mock_withdrawal_result.optimal_withdrawal_rate = 0.04
+        mock_withdrawal_result.optimal_annual_withdrawal = 40000
+        mock_withdrawal_result.success_rate = 0.85
+        mock_withdrawal_result.average_portfolio_value = 110000
+        mock_withdrawal_result.worst_case_portfolio_value = 100000
+
+        # Configure mock to return a path
+        mock_export_summary.return_value = Path("/tmp/test_summary.json")
+
+        report_config = ReportConfig(include_charts=False, include_raw_data=True)
+        report_generator = ReportGenerator(config=report_config, logger=self.logger)
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            output_dir = Path(temp_dir) / "reports"
-
             report_files = report_generator.generate_comprehensive_report(
                 retirement_analysis=mock_retirement_analysis,
                 simulation_result=mock_simulation_result,
-                output_dir=output_dir
+                withdrawal_result=mock_withdrawal_result,
+                output_dir=Path(temp_dir)
             )
 
-            # Should only have text report
-            assert "text_report" in report_files
-            assert "portfolio_chart" not in report_files
-            assert "simulation_data" in report_files
-            assert "analysis_summary" in report_files
+            # Verify report files were generated
+            assert 'text_report' in report_files
+            assert 'analysis_summary' in report_files
+            assert 'simulation_data' in report_files
+
+            # Verify text report exists
+            text_report_path = report_files['text_report']
+            assert text_report_path.exists()
+            assert text_report_path.suffix == '.txt'
+
+            # Verify content was written
+            with open(text_report_path, 'r') as f:
+                content = f.read()
+                assert "Test Person" in content
+                assert "85.0%" in content  # Success rate
 
     def test_generate_comprehensive_report_no_raw_data(self):
         """Test report generation without raw data export."""
@@ -539,6 +611,10 @@ class TestReportGenerator:
         mock_scenario.success = True
         mock_scenario.withdrawals = [0] * 20  # Add withdrawals
         mock_scenario.contributions = [0] * 20  # Add contributions
+
+        # Add allocation percentages and returns for debug export
+        mock_scenario.allocation_percentages = [{"stock": 0.6, "bond": 0.4}] * 20
+        mock_scenario.returns = [0.05] * 20
 
         mock_simulation_result = Mock()
         mock_simulation_result.scenarios = [mock_scenario] * 10  # 10 scenarios

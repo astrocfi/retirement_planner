@@ -8,92 +8,76 @@ federal_tax_brackets:
   standard_deduction: 14600.0
   personal_exemption: 0.0
   brackets:
-    - bracket_min: 0
-      bracket_max: 11600
+    - min: 0
+      max: 11600
       rate: 0.10
-      filing_status: "single"
 
-    - bracket_min: 11600
-      bracket_max: 47150
+    - min: 11600
+      max: 47150
       rate: 0.12
-      filing_status: "single"
 
-    - bracket_min: 47150
-      bracket_max: 100525
+    - min: 47150
+      max: 100525
       rate: 0.22
-      filing_status: "single"
 
-    - bracket_min: 100525
-      bracket_max: 191950
+    - min: 100525
+      max: 191950
       rate: 0.24
-      filing_status: "single"
 
-    - bracket_min: 191950
-      bracket_max: 243725
+    - min: 191950
+      max: 243725
       rate: 0.32
-      filing_status: "single"
 
-    - bracket_min: 243725
-      bracket_max: 609350
+    - min: 243725
+      max: 609350
       rate: 0.35
-      filing_status: "single"
 
-    - bracket_min: 609350
-      bracket_max: null
+    - min: 609350
+      max: null
       rate: 0.37
-      filing_status: "single"
 
 # California State Tax Brackets (2024)
 california_tax_brackets:
   year: 2024
   filing_status: "single"
-  standard_deduction: 0.0  # California doesn't have standard deduction
+  standard_deduction: 5202.0  # California standard deduction for single filers 2024
   personal_exemption: 0.0
   brackets:
-    - bracket_min: 0
-      bracket_max: 10099
+    - min: 0
+      max: 10099
       rate: 0.01
-      filing_status: "single"
 
-    - bracket_min: 10099
-      bracket_max: 23942
+    - min: 10099
+      max: 23942
       rate: 0.02
-      filing_status: "single"
 
-    - bracket_min: 23942
-      bracket_max: 37788
+    - min: 23942
+      max: 37788
       rate: 0.04
-      filing_status: "single"
 
-    - bracket_min: 37788
-      bracket_max: 52455
+    - min: 37788
+      max: 52455
       rate: 0.06
-      filing_status: "single"
 
-    - bracket_min: 52455
-      bracket_max: 66295
+    - min: 52455
+      max: 66295
       rate: 0.08
-      filing_status: "single"
 
-    - bracket_min: 66295
-      bracket_max: 338639
+    - min: 66295
+      max: 338639
       rate: 0.093
-      filing_status: "single"
 
-    - bracket_min: 338639
-      bracket_max: 406364
+    - min: 338639
+      max: 406364
       rate: 0.103
-      filing_status: "single"
 
-    - bracket_min: 406364
-      bracket_max: 677275
+    - min: 406364
+      max: 677275
       rate: 0.113
-      filing_status: "single"
 
-    - bracket_min: 677275
-      bracket_max: null
+    - min: 677275
+      max: null
       rate: 0.133
-      filing_status: "single"
 
 # Social Security Parameters (2024)
 social_security:

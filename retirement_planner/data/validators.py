@@ -502,7 +502,8 @@ class DataValidator:
             result.add_error("No tax brackets provided")
             return result
 
-        required_fields = ["bracket_min", "rate", "filing_status"]
+        # Validate tax bracket structure
+        required_fields = ["min", "rate", "filing_status"]
 
         for i, bracket in enumerate(brackets):
             # Check required fields

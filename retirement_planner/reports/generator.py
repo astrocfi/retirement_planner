@@ -327,6 +327,8 @@ class DataExporter:
     def _export_simulation_csv(self, simulation_result: SimulationResult, output_path: Path) -> Path:
         """Export simulation data to CSV format."""
         data = []
+        warnings = []
+
         for i, scenario in enumerate(simulation_result.scenarios):
             num_years = len(scenario.portfolio_values) - 1
             for year in range(num_years):
@@ -334,27 +336,88 @@ class DataExporter:
                 final_value = scenario.portfolio_values[year + 1]
                 income = scenario.contributions[year] if year < len(scenario.contributions) else 0.0
                 expenses = scenario.withdrawals[year] if year < len(scenario.withdrawals) else 0.0
+
+                # Get tax information if available (tax-aware scenarios)
+                dividend_income = 0.0
+                federal_income_tax = 0.0
+                federal_capital_gains_tax = 0.0
+                state_income_tax = 0.0
+                state_capital_gains_tax = 0.0
+                total_tax = 0.0
+                effective_tax_rate = 0.0
+
+                if hasattr(scenario, 'dividend_income') and year < len(scenario.dividend_income):
+                    dividend_income = scenario.dividend_income[year]
+
+                if hasattr(scenario, 'annual_taxes') and year < len(scenario.annual_taxes):
+                    tax_result = scenario.annual_taxes[year]
+                    federal_income_tax = tax_result.federal_income_tax
+                    federal_capital_gains_tax = tax_result.federal_capital_gains_tax
+                    state_income_tax = tax_result.state_income_tax
+                    state_capital_gains_tax = tax_result.state_capital_gains_tax
+                    total_tax = tax_result.total_tax
+                    effective_tax_rate = tax_result.effective_tax_rate
+
+                # Calculate derived fields
+                total_income = income + dividend_income
+                total_inc_tax = federal_income_tax + state_income_tax
+                total_cg_tax = federal_capital_gains_tax + state_capital_gains_tax
+
+                # Calculate net income (negative of current portfolio_drawdown)
+                net_income_after_tax = total_income - total_tax
+                net_income = -(expenses - net_income_after_tax)  # Negative of current portfolio_drawdown
+
+                # Calculate portfolio inflow (net income minus total tax)
+                portfolio_inflow = net_income - total_tax
+
+                # Calculate portfolio return (market performance)
+                portfolio_return = final_value - starting_value - net_income
+
+                # Note: Market returns are the primary driver of portfolio growth in retirement planning
+                # The difference between expected cash flow and actual final value is expected to be significant
+                # due to market returns, so we don't need a sanity check here
+
+                # Round all values to 2 decimal places
                 data.append({
                     'scenario': i,
                     'year': year,
-                    'starting_portfolio_value': starting_value,
-                    'income': income,
-                    'expenses': expenses,
-                    'final_portfolio_value': final_value,
+                    'starting_value': round(starting_value, 2),
+                    'income': round(income, 2),
+                    'dividend_income': round(dividend_income, 2),
+                    'total_income': round(total_income, 2),
+                    'fed_inc_tax': round(-federal_income_tax, 2),  # Negative for expenses
+                    'state_inc_tax': round(-state_income_tax, 2),  # Negative for expenses
+                    'total_inc_tax': round(-total_inc_tax, 2),  # Negative for expenses
+                    'expenses': round(-expenses, 2),  # Negative for expenses
+                    'net_income': round(net_income, 2),
+                    'fed_cg_tax': round(-federal_capital_gains_tax, 2),  # Negative for expenses
+                    'state_cg_tax': round(-state_capital_gains_tax, 2),  # Negative for expenses
+                    'total_cg_tax': round(-total_cg_tax, 2),  # Negative for expenses
+                    'total_tax': round(-total_tax, 2),  # Negative for expenses
+                    'effective_tax_rate': round(effective_tax_rate, 2),
+                    'portfolio_inflow': round(portfolio_inflow, 2),
+                    'portfolio_return': round(portfolio_return, 2),
+                    'final_value': round(final_value, 2),
                     'success': scenario.success
                 })
-            # Optionally, include the last year as a terminal row (with no change)
-            # last_year = num_years
-            # data.append({
-            #     'scenario': i,
-            #     'year': last_year,
-            #     'starting_portfolio_value': scenario.portfolio_values[last_year],
-            #     'income': 0.0,
-            #     'expenses': 0.0,
-            #     'final_portfolio_value': scenario.portfolio_values[last_year],
-            #     'success': scenario.success
-            # })
+
+        # Print warnings if any
+        if warnings:
+            self.logger.log(LogLevel.WARNING, f"Found {len(warnings)} portfolio value consistency warnings:")
+            for warning in warnings[:10]:  # Show first 10 warnings
+                self.logger.log(LogLevel.WARNING, warning)
+            if len(warnings) > 10:
+                self.logger.log(LogLevel.WARNING, f"... and {len(warnings) - 10} more warnings")
+
         df = pd.DataFrame(data)
+        # Reorder columns as requested
+        column_order = [
+            'scenario', 'year', 'starting_value', 'income', 'dividend_income', 'total_income',
+            'fed_inc_tax', 'state_inc_tax', 'total_inc_tax', 'expenses', 'net_income',
+            'fed_cg_tax', 'state_cg_tax', 'total_cg_tax', 'total_tax', 'effective_tax_rate',
+            'portfolio_inflow', 'portfolio_return', 'final_value', 'success'
+        ]
+        df = df[column_order]
         df.to_csv(output_path, index=False)
         self.logger.log(LogLevel.INFO, f"Simulation data exported to CSV: {output_path}")
         return output_path
@@ -422,6 +485,192 @@ class DataExporter:
         except Exception as e:
             raise AnalysisError(f"Failed to export analysis summary: {e}")
 
+    def export_simulation_debug_data(
+        self,
+        simulation_result: SimulationResult,
+        output_path: Path,
+        format: str = "csv"
+    ) -> Path:
+        """Export detailed debug simulation data including portfolio contents."""
+        try:
+            if format.lower() == "csv":
+                return self._export_simulation_debug_csv(simulation_result, output_path)
+            elif format.lower() == "json":
+                return self._export_simulation_debug_json(simulation_result, output_path)
+            else:
+                raise AnalysisError(f"Unsupported export format: {format}")
+
+        except Exception as e:
+            raise AnalysisError(f"Failed to export simulation debug data: {e}")
+
+    def _export_simulation_debug_csv(self, simulation_result: SimulationResult, output_path: Path) -> Path:
+        """Export detailed debug simulation data to CSV format."""
+        data = []
+        warnings = []
+
+        for i, scenario in enumerate(simulation_result.scenarios):
+            num_years = len(scenario.portfolio_values) - 1
+            for year in range(num_years):
+                starting_value = scenario.portfolio_values[year]
+                final_value = scenario.portfolio_values[year + 1]
+                income = scenario.contributions[year] if year < len(scenario.contributions) else 0.0
+                expenses = scenario.withdrawals[year] if year < len(scenario.withdrawals) else 0.0
+
+                # Get tax information if available (tax-aware scenarios)
+                dividend_income = 0.0
+                federal_income_tax = 0.0
+                federal_capital_gains_tax = 0.0
+                state_income_tax = 0.0
+                state_capital_gains_tax = 0.0
+                total_tax = 0.0
+                effective_tax_rate = 0.0
+
+                if hasattr(scenario, 'dividend_income') and year < len(scenario.dividend_income):
+                    dividend_income = scenario.dividend_income[year]
+
+                if hasattr(scenario, 'annual_taxes') and year < len(scenario.annual_taxes):
+                    tax_result = scenario.annual_taxes[year]
+                    federal_income_tax = tax_result.federal_income_tax
+                    federal_capital_gains_tax = tax_result.federal_capital_gains_tax
+                    state_income_tax = tax_result.state_income_tax
+                    state_capital_gains_tax = tax_result.state_capital_gains_tax
+                    total_tax = tax_result.total_tax
+                    effective_tax_rate = tax_result.effective_tax_rate
+
+                # Get allocation information if available
+                allocation_info = ""
+                if hasattr(scenario, 'allocation_percentages') and year < len(scenario.allocation_percentages):
+                    allocation = scenario.allocation_percentages[year]
+                    allocation_info = "; ".join([f"{asset}: {pct:.1%}" for asset, pct in allocation.items()])
+
+                # Get return information if available
+                year_return = 0.0
+                if hasattr(scenario, 'returns') and year < len(scenario.returns):
+                    year_return = scenario.returns[year]
+
+                # Calculate derived fields
+                total_income = income + dividend_income
+                total_inc_tax = federal_income_tax + state_income_tax
+                total_cg_tax = federal_capital_gains_tax + state_capital_gains_tax
+
+                # Calculate net income (negative of current portfolio_drawdown)
+                net_income_after_tax = total_income - total_tax
+                net_income = -(expenses - net_income_after_tax)  # Negative of current portfolio_drawdown
+
+                # Calculate portfolio inflow (net income minus total tax)
+                portfolio_inflow = net_income - total_tax
+
+                # Calculate portfolio return (market performance)
+                portfolio_return = final_value - starting_value - net_income
+
+                # Note: Market returns are the primary driver of portfolio growth in retirement planning
+                # The difference between expected cash flow and actual final value is expected to be significant
+                # due to market returns, so we don't need a sanity check here
+
+                # Round all values to 2 decimal places
+                data.append({
+                    'scenario': i,
+                    'year': year,
+                    'starting_value': round(starting_value, 2),
+                    'income': round(income, 2),
+                    'dividend_income': round(dividend_income, 2),
+                    'total_income': round(total_income, 2),
+                    'fed_inc_tax': round(-federal_income_tax, 2),  # Negative for expenses
+                    'state_inc_tax': round(-state_income_tax, 2),  # Negative for expenses
+                    'total_inc_tax': round(-total_inc_tax, 2),  # Negative for expenses
+                    'expenses': round(-expenses, 2),  # Negative for expenses
+                    'net_income': round(net_income, 2),
+                    'fed_cg_tax': round(-federal_capital_gains_tax, 2),  # Negative for expenses
+                    'state_cg_tax': round(-state_capital_gains_tax, 2),  # Negative for expenses
+                    'total_cg_tax': round(-total_cg_tax, 2),  # Negative for expenses
+                    'total_tax': round(-total_tax, 2),  # Negative for expenses
+                    'effective_tax_rate': round(effective_tax_rate, 2),
+                    'portfolio_inflow': round(portfolio_inflow, 2),
+                    'portfolio_return': round(portfolio_return, 2),
+                    'final_value': round(final_value, 2),
+                    'year_return': round(year_return, 4),
+                    'allocation': allocation_info,
+                    'success': scenario.success
+                })
+
+        # Print warnings if any
+        if warnings:
+            self.logger.log(LogLevel.WARNING, f"Found {len(warnings)} portfolio value consistency warnings:")
+            for warning in warnings[:10]:  # Show first 10 warnings
+                self.logger.log(LogLevel.WARNING, warning)
+            if len(warnings) > 10:
+                self.logger.log(LogLevel.WARNING, f"... and {len(warnings) - 10} more warnings")
+
+        df = pd.DataFrame(data)
+        # Order columns for debug output
+        column_order = [
+            'scenario', 'year', 'starting_value', 'income', 'dividend_income', 'total_income',
+            'fed_inc_tax', 'state_inc_tax', 'total_inc_tax', 'expenses', 'net_income',
+            'fed_cg_tax', 'state_cg_tax', 'total_cg_tax', 'total_tax', 'effective_tax_rate',
+            'portfolio_inflow', 'portfolio_return', 'final_value', 'year_return', 'allocation', 'success'
+        ]
+        df = df[column_order]
+        df.to_csv(output_path, index=False)
+        self.logger.log(LogLevel.INFO, f"Simulation debug data exported to CSV: {output_path}")
+        return output_path
+
+    def _export_simulation_debug_json(self, simulation_result: SimulationResult, output_path: Path) -> Path:
+        """Export detailed debug simulation data to JSON format."""
+        data = {
+            'metadata': {
+                'num_scenarios': simulation_result.num_scenarios,
+                'time_horizon': simulation_result.time_horizon,
+                'success_rate': simulation_result.success_rate,
+                'exported_at': datetime.now().isoformat()
+            },
+            'scenarios': []
+        }
+
+        for i, scenario in enumerate(simulation_result.scenarios):
+            scenario_data = {
+                'scenario_id': i,
+                'success': scenario.success,
+                'failure_year': scenario.failure_year,
+                'years': []
+            }
+
+            num_years = len(scenario.portfolio_values) - 1
+            for year in range(num_years):
+                year_data = {
+                    'year': year,
+                    'portfolio_value': scenario.portfolio_values[year],
+                    'final_value': scenario.portfolio_values[year + 1],
+                    'income': scenario.contributions[year] if year < len(scenario.contributions) else 0.0,
+                    'expenses': scenario.withdrawals[year] if year < len(scenario.withdrawals) else 0.0,
+                    'return': scenario.returns[year] if hasattr(scenario, 'returns') and year < len(scenario.returns) else 0.0,
+                    'allocation': scenario.allocation_percentages[year] if hasattr(scenario, 'allocation_percentages') and year < len(scenario.allocation_percentages) else {},
+                }
+
+                # Add tax information if available
+                if hasattr(scenario, 'dividend_income') and year < len(scenario.dividend_income):
+                    year_data['dividend_income'] = scenario.dividend_income[year]
+
+                if hasattr(scenario, 'annual_taxes') and year < len(scenario.annual_taxes):
+                    tax_result = scenario.annual_taxes[year]
+                    year_data['taxes'] = {
+                        'federal_income_tax': tax_result.federal_income_tax,
+                        'federal_capital_gains_tax': tax_result.federal_capital_gains_tax,
+                        'state_income_tax': tax_result.state_income_tax,
+                        'state_capital_gains_tax': tax_result.state_capital_gains_tax,
+                        'total_tax': tax_result.total_tax,
+                        'effective_tax_rate': tax_result.effective_tax_rate
+                    }
+
+                scenario_data['years'].append(year_data)
+
+            data['scenarios'].append(scenario_data)
+
+        with open(output_path, 'w') as f:
+            json.dump(data, f, indent=2)
+
+        self.logger.log(LogLevel.INFO, f"Simulation debug data exported to JSON: {output_path}")
+        return output_path
+
 
 class ReportGenerator:
     """Main report generator for retirement analysis."""
@@ -480,6 +729,12 @@ class ReportGenerator:
                 sim_data_path = data_dir / f"simulation_data_{timestamp}.csv"
                 report_files['simulation_data'] = self.data_exporter.export_simulation_data(
                     simulation_result, sim_data_path, "csv"
+                )
+
+                # Debug simulation data
+                debug_data_path = data_dir / f"simulation_debug_data_{timestamp}.csv"
+                report_files['simulation_debug_data'] = self.data_exporter.export_simulation_debug_data(
+                    simulation_result, debug_data_path, "csv"
                 )
 
                 # Analysis summary

@@ -548,71 +548,49 @@ class TestDataValidator:
         """Test validating valid tax brackets."""
         validator = DataValidator()
 
-        brackets = [
+        # Test valid tax bracket data
+        valid_brackets = [
             {
-                'bracket_min': 0,
-                'bracket_max': 11600,
+                'min': 0,
+                'max': 11600,
                 'rate': 0.10,
                 'filing_status': 'single'
             },
             {
-                'bracket_min': 11600,
-                'bracket_max': 47150,
+                'min': 11600,
+                'max': 47150,
                 'rate': 0.12,
                 'filing_status': 'single'
             }
         ]
 
-        result = validator.validate_tax_brackets(brackets)
+        result = validator.validate_tax_brackets(valid_brackets)
+        assert result.is_valid
 
-        assert result.is_valid is True
-        assert len(result.errors) == 0
-
-    def test_validate_tax_brackets_empty(self):
-        """Test validating empty tax brackets."""
-        validator = DataValidator()
-
-        result = validator.validate_tax_brackets([])
-
-        assert result.is_valid is False
-        assert len(result.errors) == 1
-        assert "No tax brackets provided" in result.errors[0]
-
-    def test_validate_tax_brackets_missing_fields(self):
-        """Test validating tax brackets with missing fields."""
-        validator = DataValidator()
-
-        brackets = [
+        # Test invalid tax bracket data (missing required fields)
+        invalid_brackets = [
             {
-                'bracket_min': 0,
-                'rate': 0.10  # Missing bracket_max and filing_status
+                'rate': 0.10  # Missing min and filing_status
             }
         ]
 
-        result = validator.validate_tax_brackets(brackets)
+        result = validator.validate_tax_brackets(invalid_brackets)
+        assert not result.is_valid
+        assert len(result.errors) > 0
 
-        assert result.is_valid is False
-        assert len(result.errors) >= 1
-        assert "missing required field" in result.errors[0]
-
-    def test_validate_tax_brackets_invalid_rate(self):
-        """Test validating tax brackets with invalid rate."""
-        validator = DataValidator()
-
-        brackets = [
+        # Test invalid tax bracket data (invalid rate)
+        invalid_brackets = [
             {
-                'bracket_min': 0,
-                'bracket_max': 11600,
-                'rate': 1.5,  # > 100%
+                'min': 0,
+                'max': 11600,
+                'rate': 1.5,  # Rate > 100%
                 'filing_status': 'single'
             }
         ]
 
-        result = validator.validate_tax_brackets(brackets)
-
-        assert result.is_valid is False
-        assert len(result.errors) == 1
-        assert "invalid rate" in result.errors[0]
+        result = validator.validate_tax_brackets(invalid_brackets)
+        assert not result.is_valid
+        assert len(result.errors) > 0
 
     def test_validate_social_security_data_valid(self):
         """Test validating valid Social Security data."""

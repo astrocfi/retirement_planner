@@ -39,8 +39,8 @@ class Period:
         validator.add_field_validator('start_age').add_rule(RangeRule('start_age', min_value=0, max_value=120))
         validator.add_field_validator('end_age').add_rule(RangeRule('end_age', min_value=0, max_value=120))
 
-        if self.end_age and self.start_age >= self.end_age:
-            raise ValidationError("End age must be after start age")
+        if self.end_age and self.start_age > self.end_age:
+            raise ValidationError("End age must be greater than or equal to start age")
 
         result = validator.validate({
             'start_age': self.start_age,
@@ -56,7 +56,7 @@ class Period:
 
     def duration(self) -> int:
         """Calculate duration of period in years."""
-        return (self.end_age or 120) - self.start_age
+        return (self.end_age or 120) - self.start_age + 1
 
 
 @dataclass(frozen=True)

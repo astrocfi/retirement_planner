@@ -53,9 +53,16 @@ class TestPeriod:
         assert period.start_age == 65
         assert period.end_age is None
 
+    def test_period_creation_single_year(self):
+        """Test creating period for a single year."""
+        period = Period(start_age=65, end_age=65)
+        assert period.start_age == 65
+        assert period.end_age == 65
+        assert period.duration() == 1
+
     def test_period_validation_invalid_age_range(self):
         """Test period validation with invalid age range."""
-        with pytest.raises(ValidationError, match="End age must be after start age"):
+        with pytest.raises(ValidationError, match="End age must be greater than or equal to start age"):
             Period(start_age=65, end_age=60)
 
     def test_period_validation_invalid_start_age(self):
@@ -73,6 +80,14 @@ class TestPeriod:
         assert period.contains_age(44) is False
         assert period.contains_age(66) is False
 
+    def test_contains_age_single_year(self):
+        """Test age containment for single year period."""
+        period = Period(start_age=65, end_age=65)
+
+        assert period.contains_age(65) is True
+        assert period.contains_age(64) is False
+        assert period.contains_age(66) is False
+
     def test_contains_age_no_end(self):
         """Test age containment with no end age."""
         period = Period(start_age=65)
@@ -85,12 +100,17 @@ class TestPeriod:
     def test_duration(self):
         """Test duration calculation."""
         period = Period(start_age=45, end_age=65)
-        assert period.duration() == 20
+        assert period.duration() == 21  # 65 - 45 + 1
+
+    def test_duration_single_year(self):
+        """Test duration calculation for single year."""
+        period = Period(start_age=65, end_age=65)
+        assert period.duration() == 1
 
     def test_duration_no_end(self):
         """Test duration calculation with no end age."""
         period = Period(start_age=65)
-        assert period.duration() == 55  # 120 - 65
+        assert period.duration() == 56  # 120 - 65 + 1
 
 
 class TestEvent:

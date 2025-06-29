@@ -1,5 +1,5 @@
 # Unified Configuration for Simple Retirement Example
-# This file combines person, assets, asset_performance, events, simulation, and economy sections
+# This file combines person, assets, events, simulation, and economy sections
 
 # Person Section
 person:
@@ -20,42 +20,73 @@ person:
 
 # Assets Section (simplified - only type and current value)
 assets:
-  - type: "simple_portfolio"
-    current_value: 1000000.0
-    notes: "Simple all-stock portfolio"
+  - type: "stocks"
+    current_value: 600000
+    notes: "US large cap stocks"
+  - type: "bonds"
+    current_value: 400000
+    notes: "US investment grade bonds"
 
-# Asset Performance Section (detailed characteristics)
+# Asset Performance Section
 asset_performance:
-  - type: "simple_portfolio"
+  - type: "stocks"
     asset_type: "equity"
     expected_return: 0.07
-    volatility: .07
-    correlation: {}
+    volatility: 0.15
+    correlation:
+      stocks: 1.0
+      bonds: 0.0
+    description: "US large cap stocks"
+    # Tax-related fields
+    dividend_rate: 0.02  # 2% dividend yield
+    tax_free: false
+    liquid: true
+    dividend_reinvestment: true
+
+  - type: "bonds"
+    asset_type: "fixed_income"
+    expected_return: 0.04
+    volatility: 0.05
+    correlation:
+      stocks: 0.0
+      bonds: 1.0
+    description: "US investment grade bonds"
+    # Tax-related fields
+    dividend_rate: 0.04  # 4% interest yield
+    tax_free: false
+    liquid: true
+    dividend_reinvestment: false  # Interest paid out
 
 # Events Section
 events:
-  income: []
-  expenses:
-    - name: "retirement_expenses"
-      event_type: "expense"
-      period:
-        start_age: 65
-        end_age: 95
-        description: "Retirement living expenses"
-      amount: 80000.0
-      probability: 1.0
-      description: "Annual retirement expenses (today's dollars)"
-  assets: []
-  liabilities: []
-  benefits: []
+  # Retirement expenses
+  - name: "retirement_expenses"
+    event_type: "expense"
+    period:
+      start_age: 65
+      end_age: 95
+    amount: 80000
+    probability: 1.0
+    description: "Annual retirement living expenses"
+
+  # Social Security benefits
+  - name: "social_security"
+    event_type: "income"
+    period:
+      start_age: 67
+      end_age: 95
+    amount: 35000
+    probability: 1.0
+    description: "Annual Social Security benefits"
 
 # Simulation Section
 simulation:
-  num_scenarios: 1000
+  num_scenarios: 10000
   time_horizon: 30
+  random_seed: 42
 
 # Economy Section
 economy:
   inflation:
     expected_rate: 0.025
-    volatility: 0.07
+    volatility: 0.01

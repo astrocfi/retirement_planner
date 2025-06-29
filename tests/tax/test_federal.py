@@ -18,30 +18,40 @@ class TestUSFederalTax:
     def test_income_tax_low_bracket(self):
         """Test federal income tax calculation in lowest bracket."""
         federal_tax = USFederalTax()
-        income = 10000
+        income = 20000  # Above standard deduction
         tax = federal_tax.calculate_income_tax(income, 'single')
-        expected_tax = income * 0.10  # 10% bracket
+        # Taxable income = 20000 - 14600 = 5400
+        # Tax = 5400 * 0.10 = 540
+        expected_tax = (income - 14600) * 0.10
         assert tax == pytest.approx(expected_tax)
 
     def test_income_tax_multiple_brackets(self):
         """Test federal income tax calculation across multiple brackets."""
         federal_tax = USFederalTax()
-        income = 50000
+        income = 60000  # Above standard deduction
         tax = federal_tax.calculate_income_tax(income, 'single')
 
-        # Manual calculation for 2024 brackets
+        # Manual calculation for 2024 brackets with standard deduction
+        taxable_income = income - 14600  # Standard deduction
         brackets = federal_tax.get_tax_brackets(2024, 'single')
         expected = 0.0
-        remaining = income
+        remaining = taxable_income
         for b in brackets:
-            lower, upper, rate = b['bracket_min'], b['bracket_max'] if b['bracket_max'] is not None else float('inf'), b['rate']
-            if income > lower:
+            lower, upper, rate = b['min'], b['max'] if b['max'] is not None else float('inf'), b['rate']
+            if taxable_income > lower:
                 taxable = min(remaining, upper - lower)
                 expected += taxable * rate
                 remaining -= taxable
                 if remaining <= 0:
                     break
         assert tax == pytest.approx(expected)
+
+    def test_income_tax_below_standard_deduction(self):
+        """Test federal income tax calculation below standard deduction."""
+        federal_tax = USFederalTax()
+        income = 10000  # Below standard deduction of 14600
+        tax = federal_tax.calculate_income_tax(income, 'single')
+        assert tax == 0.0
 
     def test_capital_gains_tax_short_term(self):
         """Test short-term capital gains tax (taxed as ordinary income)."""
@@ -71,7 +81,7 @@ class TestUSFederalTax:
         federal_tax = USFederalTax()
         brackets = federal_tax.get_tax_brackets(2024, 'single')
         assert isinstance(brackets, list)
-        assert all('bracket_min' in b and 'bracket_max' in b and 'rate' in b for b in brackets)
+        assert all('min' in b and 'max' in b and 'rate' in b for b in brackets)
         assert len(brackets) == 7  # 7 brackets for 2024
 
     def test_get_deductions_single(self):

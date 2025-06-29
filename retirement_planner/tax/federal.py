@@ -63,13 +63,22 @@ class USFederalTax(FederalTax):
     def calculate_income_tax(self, income: float, filing_status: str, **kwargs) -> float:
         config = self._get_federal_config(self.tax_year, filing_status)
         brackets = config['brackets']
+        standard_deduction = config.get('standard_deduction', 0.0)
+
+        # Apply standard deduction to get taxable income
+        taxable_income = max(0.0, income - standard_deduction)
+
+        # If no taxable income after deduction, no tax
+        if taxable_income <= 0:
+            return 0.0
+
         tax = 0.0
-        remaining_income = income
+        remaining_income = taxable_income
         for bracket in brackets:
-            lower = bracket['bracket_min']
-            upper = bracket['bracket_max'] if bracket['bracket_max'] is not None else float('inf')
+            lower = bracket['min']
+            upper = bracket['max'] if bracket['max'] is not None else float('inf')
             rate = bracket['rate']
-            if income > lower:
+            if taxable_income > lower:
                 taxable = min(remaining_income, upper - lower)
                 tax += taxable * rate
                 remaining_income -= taxable
